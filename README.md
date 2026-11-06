@@ -1,6 +1,6 @@
 # CanopyGIS — Hybrid Tri-Engine Urban Tree Canopy & Centroid Extraction (`SAM 3` + `Weecology DeepForest 2.1.0` + `Geodesic Watershed + RAG`)
 
-[![Release](https://img.shields.io/badge/Release-v3.0.0-121417?style=flat-square)](https://github.com/napattan/CanopyGIS)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-121417?style=flat-square)](https://github.com/napattan/CanopyGIS)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-GitHub_Pages-059669?style=flat-square)](https://napattan.github.io/CanopyGIS/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB?style=flat-square)](./LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](./requirements.txt)
@@ -8,9 +8,9 @@
 [![Upstream](https://img.shields.io/badge/Upstream-Weecology%2FDeepForest_%231447_%26_%231440-D97706?style=flat-square)](https://github.com/weecology/DeepForest/issues/1447#issuecomment-6677900572)
 [![Lab](https://img.shields.io/badge/Lab-ISCV_%7C_Isocurve_Research_Lab_%28%40iscvlab%29-121417?style=flat-square&logo=github&logoColor=white)](https://github.com/iscvlab)
 
-**CanopyGIS** (`SAE-LIM` Sub-Engine `[D]`: Geo-AI Canopy Segmentation V2/V3) is an open-source computational landscape architecture and urban forestry platform developed for Bachelor's thesis research. It extracts continuous woody canopy coverage, individual tree-crown polygons, treetop centroids, and allometric attributes from georeferenced satellite/aerial imagery (`Google VHR Satellite` `Zoom 19–22` at `3.6–29.6 cm/px` or uploaded GeoTIFF/RGB files) without requiring airborne LiDAR—combining **`SAM 3` (`SamGeo3`)**, **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`)**, and **Marker-Controlled Compact Geodesic Watershed with 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing**.
+**CanopyGIS** (`SAE-LIM` Sub-Engine `[D]`: Geo-AI Canopy Segmentation V1.0) is an open-source computational landscape architecture and urban forestry platform developed for Bachelor's thesis research. It extracts continuous woody canopy coverage, individual tree-crown polygons, treetop centroids, and allometric attributes from georeferenced satellite/aerial imagery (`Google VHR Satellite` `Zoom 19–22` at `3.6–29.6 cm/px` or uploaded GeoTIFF/RGB files) without requiring airborne LiDAR—combining **`SAM 3` (`SamGeo3`)**, **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`)**, and **Marker-Controlled Compact Geodesic Watershed with 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing**.
 
-| Full Hybrid Closed-Canopy View (`On Nut` `580.11 Rai` · `2,987` Crowns) | `Weecology DeepForest 2.1.0` Priority-1 Treetop Anchor Seeds (`108` Core Seeds) |
+| Full Hybrid Closed-Canopy View (`On Nut` `229.4 Acres (928,176 sqm)` · `2,987` Crowns) | `Weecology DeepForest 2.1.0` Priority-1 Treetop Anchor Seeds (`108` Core Seeds) |
 | :---: | :---: |
 | ![CanopyGIS Hybrid Overview](docs/assets/canopygis_overview_watershed.jpg) | ![CanopyGIS DeepForest Anchor Seeds](docs/assets/canopygis_deepforest_seeds.jpg) |
 
@@ -19,7 +19,7 @@
 ## ⚡ TL;DR — Capabilities & Performance at a Glance
 
 - **Hybrid Tri-Engine Architecture (`SAM 3 + DeepForest 2.1.0 + Watershed + RAG`)**: Uses `SAM 3` for isolated standalone crowns (`Pass 1` + `Step 2A/2B/2C`), `Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`) for nadir treetop seed detection across tiled rasters (`1,050–8,698` raw candidate boxes per site), and 3-Pass `RAG` Geodesic Watershed to partition dense tropical closed-canopy stands.
-- **Zero-Install Pre-Loaded Interactive Demo**: Ships with pre-computed GeoJSON sessions for **`On Nut Waste Center` (`ON`, `580.11 Rai`, `2,987` crowns)** and **`Nong Khaem Waste Center` (`NK`, `379.93 Rai`, `2,110` crowns)** so anyone launching the web UI (or visiting the **[Live GitHub Pages Demo](https://napattan.github.io/CanopyGIS/)**) can immediately inspect crowns, toggle `SAM 3` / `DeepForest` / `Watershed` layers, and test `< 30 ms` real-time physical filter sliders without waiting for GPU inference.
+- **Zero-Install Pre-Loaded Interactive Demo**: Ships with pre-computed GeoJSON sessions for **`On Nut Waste Center` (`ON`, `229.4 Acres (928,176 sqm)`, `2,987` crowns)** and **`Nong Khaem Waste Center` (`NK`, `150.2 Acres (607,888 sqm)`, `2,110` crowns)** so anyone launching the web UI (or visiting the **[Live GitHub Pages Demo](https://napattan.github.io/CanopyGIS/)**) can immediately inspect crowns, toggle `SAM 3` / `DeepForest` / `Watershed` layers, and test `< 30 ms` real-time physical filter sliders without waiting for GPU inference.
 - **3-Pass `RAG` Small-Basin Coalescing**: Eliminates `-100%` of `< 4.0 m²` over-segmented watershed micro-shards (`1,568 → 0` on `On Nut`) and `-99.35%` of `< 8.0 m²` shoulder shards (`3,363 → 22`).
 - **Vectorized Shapely 2.0 Post-Processing**: Profiling `CanopyGIS` on multi-thousand-crown rasters surfaced and resolved key geometry construction and distance bottlenecks (`74×–421×` speedup on `format_boxes`, `match_points`, and `convert_to_sv_format`, contributed upstream to [`Weecology/DeepForest#1447`](https://github.com/weecology/DeepForest/issues/1447) and [`#1440`](https://github.com/weecology/DeepForest/issues/1440)).
 
@@ -27,15 +27,15 @@
 
 | Evaluation Dimension | Workflow / Engine Configuration | Visual Comparison Bar | Measured Result & Delta vs. Baseline |
 | :--- | :--- | :--- | :--- |
-| **1. Micro-Shard Elimination (`< 4 m²` Noise Reduction) ↑** | **CanopyGIS V3.0 (3-Pass RAG Coalescing)**<br>Unmerged Classical Watershed Baseline | `████████████████████` **`100.0% Clean`**<br>`░░░░░░░░░░░░░░░░░░░░` `0.0% (1,568 Shards)` | **`0` Micro-Shards** (`1,568 → 0` on `On Nut`)<br>`1,568` Over-Segmented Shards |
+| **1. Micro-Shard Elimination (`< 4 m²` Noise Reduction) ↑** | **CanopyGIS V1.0 (3-Pass RAG Coalescing)**<br>Unmerged Classical Watershed Baseline | `████████████████████` **`100.0% Clean`**<br>`░░░░░░░░░░░░░░░░░░░░` `0.0% (1,568 Shards)` | **`0` Micro-Shards** (`1,568 → 0` on `On Nut`)<br>`1,568` Over-Segmented Shards |
 | **2. Interactive Filter Latency (`2,987` Crowns) ↓**<br>*(Lower = Better)* | **Client-Side Coupled Physical Sliders**<br>Server-Side Re-Segmentation Loop | `█░░░░░░░░░░░░░░░░░░░` **`< 30 ms`**<br>`████████████████████` `194,300 ms` | **`< 30 ms` Real-Time UI** (`6,400×` faster)<br>`194.3 s` Full Pipeline Re-Run |
-| **3. Multi-Site Crown Verification Confidence ↑** | **Nong Khaem (`379.93 Rai`, `2,110` Crowns)**<br>**Ramintra Park (`59.09 Rai`, `1,432` Crowns)**<br>**On Nut (`580.11 Rai`, `2,987` Crowns)** | `███████████████░░░░░` **`73.4% Mean Conf`**<br>`██████████████░░░░░░` **`71.1% Mean Conf`**<br>`██████████████░░░░░░` **`68.4% Mean Conf`** | **100% Verified** across 23 Visual Audit Regions<br>Zoom 21 (`7.2 cm/px` VHR)<br>Zoom 19 (`29.6 cm/px` Regional Campus) |
+| **3. Multi-Site Crown Verification Confidence ↑** | **Nong Khaem (`150.2 Acres (607,888 sqm)`, `2,110` Crowns)**<br>**Ramintra Park (`23.4 Acres (94,544 sqm)`, `1,432` Crowns)**<br>**On Nut (`229.4 Acres (928,176 sqm)`, `2,987` Crowns)** | `███████████████░░░░░` **`73.4% Mean Conf`**<br>`██████████████░░░░░░` **`71.1% Mean Conf`**<br>`██████████████░░░░░░` **`68.4% Mean Conf`** | **100% Verified** across 23 Visual Audit Regions<br>Zoom 21 (`7.2 cm/px` VHR)<br>Zoom 19 (`29.6 cm/px` Regional Campus) |
 
 ---
 
 ## 1. Architecture & Usage Workflow
 
-**Status (2026-11-04):** Accepted `SAE-LIM` Sub-Engine `[D]` **Canopy V3.0 Open-Source Self-Calibrating Hybrid Tri-Engine (Pillar 1: Scene-Normalized Physical Score Contract + 4-Way Symmetric `Step 2C` + Isotropic N-S/E-W Corridor Bridging + `CUDA`/`MPS`/`CPU` Device Resolution; Pillar 2: `< 30 ms` Real-Time Post-Processing Filter Sliders + Review Layer Toggles + Auto-Tune Override Persistence)** production prototype. Runtime execution integrates **Dual-Stream Radiometric Normalization (`Stream A`: CIELAB `L`-channel Shadow-Lift Gamma `0.78` + gentle `CLAHE` `1.4` + conditional `UL-09` Rayleigh Path-Radiance Subtraction for AI perception; `Stream B`: Illumination-Invariant Raw RGB, 3D Woody Relief & `UL-09` Haze-Compensated Chlorophyll Filter)** + **`SAM 3` (`SamGeo3` single-crown masks + Multi-Scale Woodland Promotion `Step 2A/2B/2C` + negative `"car"` vehicle veto)** + **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN` closed-canopy nadir treetop seeds)** + **Global Compact Geodesic Watershed (`skimage.segmentation.watershed`, `compactness=0.005`) with 3-Pass Region-Adjacency-Graph (`RAG`) Small-Basin Coalescing (`< 13.5 m²` shoulder shard absorption at `GSD >= 0.22 m/px` + single outer contour per basin) + Ornamental Courtyard & Nursery Grid Dome Extractor (`1.0–6.0 m²` patterned garden/nursery crowns)** + **Coupled `[0.0–1.0]` Physical Score Contract (`foliage_prob`, `relief_3d_score`, `artificial_cyan_score`) powering `< 30 ms` Client-Side Live Post-Processing Sliders (`Min Confidence`, `Grass/Flat-Surface 3D Relief Filter`, `Cyan Roof/Vehicle Rejection`, `Min/Max Crown Area`, and `Source Engine Pills`)**. See the full architecture and forensic audits in [`docs/RESEARCH_CANOPY_V2_HYBRID_ARCHITECTURE.md`](docs/RESEARCH_CANOPY_V2_HYBRID_ARCHITECTURE.md).
+**Status (2026-11-04):** Accepted `SAE-LIM` Sub-Engine `[D]` **CanopyGIS V1.0 Open-Source Self-Calibrating Hybrid Tri-Engine (Pillar 1: Scene-Normalized Physical Score Contract + 4-Way Symmetric `Step 2C` + Isotropic N-S/E-W Corridor Bridging + `CUDA`/`MPS`/`CPU` Device Resolution; Pillar 2: `< 30 ms` Real-Time Post-Processing Filter Sliders + Review Layer Toggles + Auto-Tune Override Persistence)** production prototype. Runtime execution integrates **Dual-Stream Radiometric Normalization (`Stream A`: CIELAB `L`-channel Shadow-Lift Gamma `0.78` + gentle `CLAHE` `1.4` + conditional `UL-09` Rayleigh Path-Radiance Subtraction for AI perception; `Stream B`: Illumination-Invariant Raw RGB, 3D Woody Relief & `UL-09` Haze-Compensated Chlorophyll Filter)** + **`SAM 3` (`SamGeo3` single-crown masks + Multi-Scale Woodland Promotion `Step 2A/2B/2C` + negative `"car"` vehicle veto)** + **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN` closed-canopy nadir treetop seeds)** + **Global Compact Geodesic Watershed (`skimage.segmentation.watershed`, `compactness=0.005`) with 3-Pass Region-Adjacency-Graph (`RAG`) Small-Basin Coalescing (`< 13.5 m²` shoulder shard absorption at `GSD >= 0.22 m/px` + single outer contour per basin) + Ornamental Courtyard & Nursery Grid Dome Extractor (`1.0–6.0 m²` patterned garden/nursery crowns)** + **Coupled `[0.0–1.0]` Physical Score Contract (`foliage_prob`, `relief_3d_score`, `artificial_cyan_score`) powering `< 30 ms` Client-Side Live Post-Processing Sliders (`Min Confidence`, `Grass/Flat-Surface 3D Relief Filter`, `Cyan Roof/Vehicle Rejection`, `Min/Max Crown Area`, and `Source Engine Pills`)**. See the full architecture and forensic audits in [`docs/RESEARCH_CANOPY_V2_HYBRID_ARCHITECTURE.md`](docs/RESEARCH_CANOPY_V2_HYBRID_ARCHITECTURE.md).
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
@@ -99,11 +99,11 @@ The web portal opens directly centered on the primary thesis site and supports 1
 
 | Preset Key (`UI / API Alias`) | Site Name | Center Coordinates (`Lat, Lon`) | Default BBox & Official Polygon | Verified Crowns |
 | :--- | :--- | :--- | :---: | ---: |
-| `ramintra` / `ramintra_sports_park` | **Ramintra Sports Park** (Primary Thesis Site · Bang Khen, Bangkok) | `13.878551°N, 100.619507°E` | `710 m × 396 m` (`10-vertex ROI`, `~59.09 Rai`) | **`1,432`** (`71.1%` conf) |
-| `onnut` / `on_nut_waste_center` (`ON`) | **On Nut Waste Center** (Official `580.11-Rai` Campus Boundary) | `13.714447°N, 100.683909°E` | `1,540 m × 1,440 m` (`14-vertex ROI`, `580.11 Rai`) | **`2,987`** (`68.4%` conf) |
-| `nongkhaem` / `nong_khaem_waste_center` (`NK`) | **Nong Khaem Waste Center** (Official `379.93-Rai` BMA Boundary) | `13.718255°N, 100.358126°E` | `1,260 m × 1,250 m` (`93-vertex ROI`, `379.93 Rai`) | **`2,110`** (`73.4%` conf) |
-| `saphansung` / `saphan_sung_park` | **Saphan Sung Public Park** (Bangkok) | `13.768900°N, 100.684500°E` | `300 m × 300 m` | Interactive |
-| `piyaphirom` / `piyaphirom_park` | **Piyaphirom Public Park** (Bangkok) | `13.743600°N, 100.640900°E` | `250 m × 250 m` | Interactive |
+| `ramintra` / `ramintra_sports_park` | **Ramintra Sports Park** (Primary Thesis Site · Bang Khen, Bangkok) | `13.878551°N, 100.619507°E` | `710 m × 396 m` (`10-vertex ROI`, `23.4 Acres (94,544 sqm)`) | **`1,432`** (`71.1%` conf) |
+| `onnut` / `on_nut_waste_center` (`ON`) | **On Nut Waste Center** (Official `229.4 Acres (928,176 sqm)` Campus Boundary) | `13.714447°N, 100.683909°E` | `1,540 m × 1,440 m` (`14-vertex ROI`, `229.4 Acres (928,176 sqm)`) | **`2,987`** (`68.4%` conf) |
+| `nongkhaem` / `nong_khaem_waste_center` (`NK`) | **Nong Khaem Waste Center** (Official `150.2 Acres (607,888 sqm)` BMA Boundary) | `13.718255°N, 100.358126°E` | `1,260 m × 1,250 m` (`93-vertex ROI`, `150.2 Acres (607,888 sqm)`) | **`2,110`** (`73.4%` conf) |
+| `saphansung` / `saphan_sung_park` | **Saphan Sung Public Park** (`15.0 Acres (60,800 sqm)` · Bangkok) | `13.768900°N, 100.684500°E` | `300 m × 300 m` (`15.0 Acres (60,800 sqm)`) | Interactive |
+| `piyaphirom` / `piyaphirom_park` | **Piyaphirom Public Park** (`4.3 Acres (17,600 sqm)` · Bangkok) | `13.743600°N, 100.640900°E` | `250 m × 250 m` (`4.3 Acres (17,600 sqm)`) | Interactive |
 
 ### 1.2 Google Satellite VHR Primary Tile Engine (`Zoom 19–22`)
 - **Unified VHR Provider (`Google VHR Satellite`)**: Zero-token pooled `ThreadPoolExecutor(max_workers=8)` fetcher requesting `scale=2` (`512×512 px`) tiles from `mt0–mt3.google.com/vt/lyrs=s` with automatic multi-zoom fallback (`z22 → z21 → z20 → z19`) and blank-tile variance verification (`std < 2.0` rejected).
@@ -193,7 +193,7 @@ Set `CANOPY_V2_QA_MAX_TILES=0` before `qa_v2_m1.py` to run all 99 M1 tiles; the 
 
 ### Candidate Model Benchmark Comparison
 
-| Method & Track | Canopy Coverage | Individual Crowns | V2 / V3 Role |
+| Method & Track | Canopy Coverage | Individual Crowns | CanopyGIS V1.0 Role |
 | :--- | :--- | :--- | :--- |
 | **RGB indices → binary mask** | High recall, low specificity | No (maps stand only) | Coverage prior & QA baseline |
 | **Standalone DeepForest 2.1 + watershed** | No coverage guarantee | Bounding boxes + heuristic split | Frozen legacy comparison baseline |

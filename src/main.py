@@ -299,7 +299,7 @@ def _normalize_preset_key(key: Optional[str]) -> Optional[str]:
 
 def _ensure_geojson_physical_scores(res_geojson_path: str) -> None:
     """
-    Ensure cached *_result.geojson files have V3.0 physical scores
+    Ensure cached *_result.geojson files have V1.0 physical scores
     (foliage_prob, relief_3d_score, artificial_cyan_score) populated for <30ms live sliders.
     """
     if not os.path.isfile(res_geojson_path):

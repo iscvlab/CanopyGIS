@@ -13,7 +13,7 @@
 | :--- | :--- |
 | **2D Research Contract** | `VERIFY / AUDIT + OPTIMIZE / SCALE` × `Software, Systems & Geospatial AI` |
 | **Target Stack & Pinned Versions** | `samgeo 1.4.1`, `torch 2.13.0+cu130` (`NVIDIA GeForce RTX 5060 Ti`), `FastAPI`, `rasterio`, `pyproj`, `OpenCV`, `Leaflet 1.9.4` |
-| **Primary Thesis Site** | `Ramintra Sports Park` (`Ramintra Sports Park`, `13.8785514°N, 100.6195068°E`, `UTM 47N 674986E 1534901N`, `59.09 Rai` inventory / `55.967 Rai` GIS) |
+| **Primary Thesis Site** | `Ramintra Sports Park` (`Ramintra Sports Park`, `13.8785514°N, 100.6195068°E`, `UTM 47N 674986E 1534901N`, `23.36 Acres (94,544 sqm)` inventory / `22.13 Acres (89,547 sqm)` GIS) |
 | **Primary Sources Inspected** | [`src/main.py`](../src/main.py#L1-L1805), [`src/canopy_v2.py`](../src/canopy_v2.py#L1-L510), [`src/script.js`](../src/script.js#L1-L2112), [`src/index.html`](../src/index.html#L1-L489) |
 | **Wave 3 Verification Score** | `10 / 10` Pipeline Subsystems Audited (`0` Unverified Claims, `10` Concrete Fixes Locked) |
 
@@ -511,9 +511,9 @@ Following user visual audit of the park woodland (`U0`–`U5`), forensic inspect
 
 ## 16. Canopy V2.8.8 Forensics: `UL-09` Rayleigh Atmospheric Path-Radiance Compensation, RAG Small-Basin Coalescing & 3-Site Cross-Site Benchmark (`Ramintra` · `On Nut ON` · `Nong Khaem NK`)
 
-### 16.1 Forensic Diagnosis Across On Nut (`ON`, `580.11-Rai`, `vhr_1793744238.tif`) & Nong Khaem (`NK`, `379.93-Rai`, `vhr_1793762267.tif`)
+### 16.1 Forensic Diagnosis Across On Nut (`ON`, `229.36 Acres (928,176 sqm)`, `vhr_1793744238.tif`) & Nong Khaem (`NK`, `150.21 Acres (607,888 sqm)`, `vhr_1793762267.tif`)
 
-When executing the Track A cross-site generalization benchmark on the twin waste disposal centers — **`On Nut Waste Center` (`ON`, `580.11-Rai` / `928,184 m²`, 14-vertex boundary, `uploads/vhr_1793744238.tif`, `5308 × 4965 px`, `z=19`, `GSD = 0.296 m/px`)** and **`Nong Khaem Waste Center` (`NK`, `379.93-Rai` / `607,883.7 m²`, 93-vertex official BMA statutory boundary `BMA_DPT_Draft4_S94_LUP2013_S59`, `uploads/vhr_1793762267.tif`, `4344 × 4310 px`, `z=19`, `GSD = 0.290 m/px`)** — three universal domain-shift phenomena were identified and solved from first principles without breaking `vhr_1793704454.tif` (`Ramintra Sports Park`, `1,432` crowns):
+When executing the Track A cross-site generalization benchmark on the twin waste disposal centers — **`On Nut Waste Center` (`ON`, `229.36 Acres (928,176 sqm)`, 14-vertex boundary, `uploads/vhr_1793744238.tif`, `5308 × 4965 px`, `z=19`, `GSD = 0.296 m/px`)** and **`Nong Khaem Waste Center` (`NK`, `150.21 Acres (607,888 sqm)`, 93-vertex official BMA statutory boundary `BMA_DPT_Draft4_S94_LUP2013_S59`, `uploads/vhr_1793762267.tif`, `4344 × 4310 px`, `z=19`, `GSD = 0.290 m/px`)** — three universal domain-shift phenomena were identified and solved from first principles without breaking `vhr_1793704454.tif` (`Ramintra Sports Park`, `1,432` crowns):
 
 1. **Phenomenon 1 — Atmospheric Path-Radiance Veil (`scene_gray_p1 = 78.0`, `haze_offset = 46.0` on `ON`) & Rayleigh Blue Scatter (`B > G > R`)**:
    - Whereas `vhr_1793704454.tif` (`Ramintra Sports Park`, `z=20`, `scene_gray_p1 = 4.0`, `haze_offset = 0.0`) and `vhr_1793762267.tif` (`Nong Khaem Waste Center`, `z=19`, `scene_gray_p1 = 15.0`, `haze_offset = 0.0`) were captured under clear/low-haze atmospheric conditions, the wide-area `z=19` mosaic over Prawet (`vhr_1793744238.tif`) exhibits strong urban aerosol path-radiance (`scene_gray_p1 = 78.0`, `p5 = 93.0`, `haze_offset = max(0.0, 78.0 - 32.0) = 46.0`).
@@ -546,11 +546,11 @@ When executing the Track A cross-site generalization benchmark on the twin waste
 
 | Benchmark Dimension / Metric | **Pillar 3: `Ramintra Sports Park`** (`vhr_1793704454.tif`) | **Pillar 4A: `On Nut Waste Center` (`ON`, `vhr_1793744238.tif`)** | **Pillar 4B: `Nong Khaem Waste Center` (`NK`, `vhr_1793762267.tif`)** | Engineering Verdict |
 |:---|:---:|:---:|:---:|:---|
-| **Official ROI Boundary & Area** | `10-vertex` Park Polygon (`~59.09 Rai`) | `14-vertex` Official Complex (`580.11 Rai` / `928,184 m²`) | **`93-vertex` BMA Statutory Boundary (`379.93 Rai` / `607,883.7 m²`)** | **Per-Site Persistent ROI (`canopy_roi_by_site_v1`)** |
+| **Official ROI Boundary & Area** | `10-vertex` Park Polygon (`23.36 Acres (94,544 sqm)`) | `14-vertex` Official Complex (`229.36 Acres (928,176 sqm)`) | **`93-vertex` BMA Statutory Boundary (`150.21 Acres (607,888 sqm)`)** | **Per-Site Persistent ROI (`canopy_roi_by_site_v1`)** |
 | **VHR Raster & Ground Sample Distance (`GSD`)** | `4899 × 2732 px` (`z=20`, `GSD = 0.145 m/px`) | `5308 × 4965 px` (`z=19`, `GSD = 0.296 m/px`) | **`4344 × 4310 px` (`z=19`, `GSD = 0.290 m/px`, `64` tiles)** | **Resolution-Invariant Scaling (`UL-01`)** |
 | **Scene Atmospheric Haze (`scene_gray_p1` / `haze_offset`)** | `p1 = 4.0` → **`haze_offset = 0.0`** (Clear, Fine GSD) | `p1 = 78.0` → **`haze_offset = 46.0`** (`UL-09` Active) | **`p1 = 15.0` → `haze_offset = 0.0` (Clear/Low-Haze, Coarse `z=19` GSD)** | **Conditional `UL-09` + Coarse-GSD `RAG` (`gsd_m >= 0.22`)** |
 | **Total Cohesive Tree Crowns (`individual_tree`)** | **`1,432` crowns** | **`2,987` crowns** (`807` `sam3` · `108` `df` · `2,072` `ws`) | **`1,967` crowns** (`844` `sam3` · `170` `df` · `953` `ws`) | **Cohesive Individual & Woodland Delineation** |
-| **Total Canopy Area Within Official Boundary** | `~32.4 Rai` (`~54.8%` of park) | `191,064 m²` (`119.42 Rai` · `20.58%` of `580.11 Rai`) | **`125,915.2 m²` (`78.70 Rai` · `20.72%` of `379.93 Rai`)** | **Consistent ~20.6–20.7% Twin Waste-Hub Canopy Share** |
+| **Total Canopy Area Within Official Boundary** | `~12.81 Acres (51,840 sqm)` (`~54.8%` of park) | `47.21 Acres (191,064 sqm)` · `20.58%` of `229.36 Acres (928,176 sqm)` | **`31.11 Acres (125,915 sqm)` · `20.72%` of `150.21 Acres (607,888 sqm)`** | **Consistent ~20.6–20.7% Twin Waste-Hub Canopy Share** |
 | **Mean Separation Confidence (`confidence_pct`)** | **`71.1%`** | **`68.4%`** (`773` High · `1,426` Good · `788` Mod · `0` Low) | **`73.9%`** (`825` High · `848` Good · `270` Mod · `24` Low) | **Calibrated Multi-Cue Confidence** |
 | **Crown Area Distribution (`P10 / P25 / P50 / P75 / P90`)** | `4.2 / 8.9 / 16.4 / 31.8 / 58.2 m²` | `15.6 / 26.6 / 52.1 / 92.3 / 137.4 m²` | **`15.1 / 24.4 / 47.7 / 91.1 / 136.1 m²`** (`SAM 3` P50 `61.7 m²`, `WS` P50 `35.5 m²`) | **Biologically Realistic Canopy Scale** |
 | **Watershed Micro-Shard Elimination (`< 4 m²` / `< 8 m²`)** | `0` / `14` | `< 4 m²`: `1,568 → 0` (`-100%`)<br>`< 8 m²`: `3,363 → 22` (`-99.35%`) | **`< 4 m²`: `141 → 0` (`-100%`)**<br>**`< 8 m²`: `306 → 24` (`-92.16%`)** | **Confetti / Shoulder Shards Eliminated (`RAG`)** |
@@ -559,22 +559,22 @@ When executing the Track A cross-site generalization benchmark on the twin waste
 
 ---
 
-### 16.4 Nong Khaem (`NK`, `379.93-Rai`) 11-Subzone Masterplan Canopy Breakdown (`nk_zones_masterplan_subzones.geojson`)
+### 16.4 Nong Khaem (`NK`, `150.21 Acres (607,888 sqm)`) 11-Subzone Masterplan Canopy Breakdown (`nk_zones_masterplan_subzones.geojson`)
 
-| Subzone ID | Official Subzone Name (`nk_zones_masterplan_subzones.geojson`) | Subzone Area (`Rai` / `m²`) | Extracted Crowns (`individual_tree`) | Canopy Area (`m²` / `Rai`) | Subzone Canopy Share (`%`) |
+| Subzone ID | Official Subzone Name (`nk_zones_masterplan_subzones.geojson`) | Subzone Area (`Acres (sqm)`) | Extracted Crowns (`individual_tree`) | Canopy Area (`Acres (sqm)`) | Subzone Canopy Share (`%`) |
 |:---:|:---|---:|---:|---:|---:|
-| **`SZ-01E`** |  . 350  &  3 | `19.10 Rai` (`30,558 m²`) | **`226`** | `12,792 m²` (`7.99 Rai`) | **`41.9%`** |
-| **`SZ-01D`** | Former BMA Abattoir & Organic Composting Plant (Pin #14) | `52.89 Rai` (`84,624 m²`) | **`512`** | `31,034 m²` (`19.40 Rai`) | **`36.7%`** |
-| **`SZ-01B`** | Wastewater Treatment Plant & 3 Circular Clarifiers (`≥800 m³/day`) | `42.19 Rai` (`67,510 m²`) | **`374`** | `24,093 m²` (`15.06 Rai`) | **`35.7%`** |
-| **`SZ-03A`** | Phase 1 C&G Waste-to-Energy Plant (`≥300–500 TPD, 9.8 MW`) | `31.11 Rai` (`49,784 m²`) | **`190`** | `12,542 m²` (`7.84 Rai`) | **`25.2%`** |
-| **`SZ-01A`** | Nong Khaem Water Quality Control Plant & North Retention Pond | `23.81 Rai` (`38,098 m²`) | **`117`** | `7,636 m²` (`4.77 Rai`) | **`20.0%`** *(riparian banks; `0.0%` open water interior)* |
-| **`SZ-01F`** | Mechanical Engineering Division & Canal Buffer Strip | `28.29 Rai` (`45,263 m²`) | **`79`** | `5,996 m²` (`3.75 Rai`) | **`13.2%`** |
-| **`SZ-04B`** | Closed Refuse Transfer Station Group 79 (`18.11 Rai`) & South Logistics Hub | `30.82 Rai` (`49,314 m²`) | **`96`** | `5,451 m²` (`3.41 Rai`) | **`11.1%`** |
-| **`SZ-02A`** | Nightsoil Treatment Plant (`≤600 m³/day`) Grease Trap Facility (`≤300 m³/day`) & Infectious Waste Incinerator | `21.02 Rai` (`33,631 m²`) | **`55`** | `3,634 m²` (`2.27 Rai`) | **`10.8%`** |
-| **`SZ-01C`** | Legacy Nong Khaem Transfer Station & Admin Building 2 (`≥3,000 TPD`) | `27.11 Rai` (`43,370 m²`) | **`58`** | `3,335 m²` (`2.08 Rai`) | **`7.7%`** |
-| **`SZ-03B`** | 5-Bay Parallel Organic Composting Hall (Pin #20) & New Closed Transfer Station (Pin #19) | `23.74 Rai` (`37,986 m²`) | **`53`** | `2,943 m²` (`1.84 Rai`) | **`7.7%`** |
-| **`SZ-04A`** | Phase 2 C&G Waste-to-Energy Plant (`≥1,000 TPD, 30–35 MW — BOT 2589`) | `36.44 Rai` (`58,301 m²`) | **`11`** | `365 m²` (`0.23 Rai`) | **`0.6%`** *(industrial plant & concrete apron vetoed)* |
-| **Total (`NK` Statutory Site)** | **Nong Khaem Waste Center (`OFFICIAL_NONGKHAEM_POLYGON`, `93` vertices)** | **`379.93 Rai` (`607,884 m²`)** | **`2,110` (`V2.9.0`)** | **`124,860 m²` (`78.04 Rai`)** | **`20.54%`** |
+| **`SZ-01E`** | South 350-TPD Composting Plant & Pond 3 Buffer | `7.55 Acres (30,558 sqm)` | **`226`** | `3.16 Acres (12,792 sqm)` | **`41.9%`** |
+| **`SZ-01D`** | Former BMA Abattoir & Organic Composting Plant (Pin #14) | `20.91 Acres (84,624 sqm)` | **`512`** | `7.67 Acres (31,034 sqm)` | **`36.7%`** |
+| **`SZ-01B`** | Wastewater Treatment Plant & 3 Circular Clarifiers (`≥800 m³/day`) | `16.68 Acres (67,510 sqm)` | **`374`** | `5.95 Acres (24,093 sqm)` | **`35.7%`** |
+| **`SZ-03A`** | Phase 1 C&G Waste-to-Energy Plant (`≥300–500 TPD, 9.8 MW`) | `12.30 Acres (49,784 sqm)` | **`190`** | `3.10 Acres (12,542 sqm)` | **`25.2%`** |
+| **`SZ-01A`** | Nong Khaem Water Quality Control Plant & North Retention Pond | `9.41 Acres (38,098 sqm)` | **`117`** | `1.89 Acres (7,636 sqm)` | **`20.0%`** *(riparian banks; `0.0%` open water interior)* |
+| **`SZ-01F`** | Mechanical Engineering Division & Canal Buffer Strip | `11.18 Acres (45,263 sqm)` | **`79`** | `1.48 Acres (5,996 sqm)` | **`13.2%`** |
+| **`SZ-04B`** | Closed Refuse Transfer Station Group 79 (`7.16 Acres (28,976 sqm)`) & South Logistics Hub | `12.19 Acres (49,314 sqm)` | **`96`** | `1.35 Acres (5,451 sqm)` | **`11.1%`** |
+| **`SZ-02A`** | Nightsoil Treatment Plant (`≤600 m³/day`) Grease Trap Facility (`≤300 m³/day`) & Infectious Waste Incinerator | `8.31 Acres (33,631 sqm)` | **`55`** | `0.90 Acres (3,634 sqm)` | **`10.8%`** |
+| **`SZ-01C`** | Legacy Nong Khaem Transfer Station & Admin Building 2 (`≥3,000 TPD`) | `10.72 Acres (43,370 sqm)` | **`58`** | `0.82 Acres (3,335 sqm)` | **`7.7%`** |
+| **`SZ-03B`** | 5-Bay Parallel Organic Composting Hall (Pin #20) & New Closed Transfer Station (Pin #19) | `9.39 Acres (37,986 sqm)` | **`53`** | `0.73 Acres (2,943 sqm)` | **`7.7%`** |
+| **`SZ-04A`** | Phase 2 C&G Waste-to-Energy Plant (`≥1,000 TPD, 30–35 MW — BOT 2589`) | `14.41 Acres (58,301 sqm)` | **`11`** | `0.09 Acres (365 sqm)` | **`0.6%`** *(industrial plant & concrete apron vetoed)* |
+| **Total (`NK` Statutory Site)** | **Nong Khaem Waste Center (`OFFICIAL_NONGKHAEM_POLYGON`, `93` vertices)** | **`150.21 Acres (607,884 sqm)`** | **`2,110` (`V2.9.0`)** | **`30.85 Acres (124,860 sqm)`** | **`20.54%`** |
 
 ---
 
@@ -638,11 +638,11 @@ Before resolving Batch 2 (`5` user-annotated screenshots, `13` target regions on
 
 ---
 
-## 19. Canopy V3.0 Open-Source Generalization Architecture: Pillar 1 (Self-Calibrating Engine & Coupled Physical Score Contract) + Pillar 2 (`< 30 ms` Real-Time Post-Processing Filter Sliders)
+## 19. CanopyGIS V1.0 Open-Source Generalization Architecture: Pillar 1 (Self-Calibrating Engine & Coupled Physical Score Contract) + Pillar 2 (`< 30 ms` Real-Time Post-Processing Filter Sliders)
 
-To transition CanopyGIS from an internal research tool into a zero-hardcode open-source platform usable by any urban forester or landscape architect on any global satellite scene without AI prompt-tuning, **Canopy V3.0 (Phase 1: Pillar 1 + Pillar 2)** decouples GPU mask generation (`~110 s`) from interactive physical post-filtering (`< 30 ms` client-side):
+To transition CanopyGIS from an internal research tool into a zero-hardcode open-source platform usable by any urban forester or landscape architect on any global satellite scene without AI prompt-tuning, **CanopyGIS V1.0 (Phase 1: Pillar 1 + Pillar 2)** decouples GPU mask generation (`~110 s`) from interactive physical post-filtering (`< 30 ms` client-side):
 
-| Pillar & Module | Target File & Symbol | Engineered Capability in `Canopy V3.0` | Open-Source User Impact & Verification |
+| Pillar & Module | Target File & Symbol | Engineered Capability in `CanopyGIS V1.0` | Open-Source User Impact & Verification |
 |:---|:---|:---|:---|
 | **Pillar 1A — Coupled Physical Score Contract (`[0.0–1.0]`)** | `src/canopy_v2.py` (`compute_polygon_physical_scores`, `derive_feature_physical_scores`) & `src/main.py` (`process_contour_enhanced`, `_ensure_geojson_physical_scores`) | Computes and embeds 3 scene-normalized `[0.0–1.0]` physical scores on every polygon feature (`foliage_prob`, `relief_3d_score`, `artificial_cyan_score`) with automatic Rayleigh path-radiance compensation (`haze_offset`) and on-the-fly backfill for cached `*_result.geojson` sessions. | Every crown polygon carries physical 3D relief, foliage vigor, and synthetic cyan-paint metrics ready for instant `< 30 ms` client-side filtering and CSV/GeoJSON export. |
 | **Pillar 1B — 4-Way Rotational & Orientation Symmetry** | `src/canopy_v2.py` (`run_sam3_tiled` `Step 2C` & `reconcile_canopy_outputs` `ns_corridor` + `ew_corridor`) | Upgraded `Step 2C` enclosure check to 4-way cardinal symmetry (`int(has_n) + int(has_s) + int(has_w) + int(has_e) >= 3`) and added horizontal East-West corridor bridging (`ew_corridor`) alongside North-South (`ns_corridor`), plus optional `enable_car_prompt: bool = True`. | Eliminates directional bias across `0°` and `90°` tree corridors while preserving `23/23` (`100%`) Nong Khaem visual audit assertions. |

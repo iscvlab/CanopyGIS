@@ -51,7 +51,7 @@
                             <button id="tab-btn-upload" class="tab-btn" type="button" title="Upload GeoTIFF (GEO) or plain JPG (IMAGE-ONLY)">Upload file</button>
                         </div>
                         <p class="input-label-small" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
-                            Canopy V2.3 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Compact Geodesic Watershed). <strong>GEO</strong> = real map coords · <strong>IMAGE-ONLY</strong> = plain JPG/PNG detection QA.
+                            CanopyGIS V1.0 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Compact Geodesic Watershed). <strong>GEO</strong> = real map coords · <strong>IMAGE-ONLY</strong> = plain JPG/PNG detection QA.
                         </p>
                         
                         <div id="satellite-panel">
@@ -59,12 +59,12 @@
                             <div style="margin-bottom: 10px;">
                                 <span class="input-label-small">Site Preset</span>
                                 <div class="select-wrapper" style="margin-top: 4px;">
-                                    <select id="site-preset-select" style="padding: 8px 12px; height: 34px; font-size: 12px;">
-                                        <option value="onnut" selected>On Nut Waste Center (ON · 580.11 Rai)</option>
-                                        <option value="nongkhaem">Nong Khaem Waste Center (NK · 379.93 Rai)</option>
-                                        <option value="ramintra">Ramintra Sports Park (59.09 Rai)</option>
-                                        <option value="sapansung">Saphan Sung Public Park (Bangkok)</option>
-                                        <option value="piyaphirom">Piyaphirom Public Park (Bangkok)</option>
+                                    <select id="site-preset-select" style="padding: 6px 26px 6px 10px; height: 34px; font-size: 11px;">
+                                        <option value="onnut" selected>On Nut Waste Center — 229.4 Acres (928,176 sqm)</option>
+                                        <option value="nongkhaem">Nong Khaem Center — 150.2 Acres (607,888 sqm)</option>
+                                        <option value="ramintra">Ramintra Sports Park — 23.4 Acres (94,544 sqm)</option>
+                                        <option value="sapansung">Saphan Sung Park — 15.0 Acres (60,800 sqm)</option>
+                                        <option value="piyaphirom">Piyaphirom Public Park — 4.3 Acres (17,600 sqm)</option>
                                     </select>
                                 </div>
                             </div>
@@ -189,7 +189,7 @@
                         <label class="section-label">Engine</label>
                         <input type="hidden" id="model-select" value="canopy_v2">
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; background: rgba(92, 131, 83, 0.10); border: 1px solid rgba(92, 131, 83, 0.35);">
-                            <span style="font-weight: 700; font-size: 12px; color: var(--primary);">Canopy V2.5 Hybrid Tri-Engine</span>
+                            <span style="font-weight: 700; font-size: 12px; color: var(--primary);">CanopyGIS V1.0 Hybrid Tri-Engine</span>
                             <span class="badge" style="font-size: 10px;">Active</span>
                         </div>
                         <p id="algorithm-description" class="input-label-small" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
@@ -242,7 +242,7 @@
                         
                         <!-- Settings Help Card -->
                         <div id="settings-help-card" class="hidden" style="margin-bottom: 12px; padding: 10px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; font-size: 11px; line-height: 1.4; color: var(--text-secondary);">
-                            <p style="margin-top: 0; margin-bottom: 6px; font-weight: 600; color: var(--primary);">Canopy V2.2 Hybrid Tri-Engine Defaults:</p>
+                            <p style="margin-top: 0; margin-bottom: 6px; font-weight: 600; color: var(--primary);">CanopyGIS V1.0 Hybrid Tri-Engine Defaults:</p>
                             <ul style="padding-left: 14px; margin: 0; display: flex; flex-direction: column; gap: 4px;">
                                 <li><strong>SAM 3 Instance Threshold (0.18):</strong> Confidence cutoff for solitary/open-grown SAM 3 crown instances.</li>
                                 <li><strong>DeepForest 2.1 + Watershed:</strong> Closed-canopy nadir treetop seeds + global compact geodesic watershed (compactness=0.005).</li>
@@ -284,7 +284,7 @@
                         </button>
                         <div id="advanced-settings" class="hidden" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
                             <p class="input-label-small" style="margin-bottom: 10px; line-height: 1.35; color: var(--text-muted);">
-                                Manual Canopy V2 parameter overrides.
+                                Manual CanopyGIS V1.0 parameter overrides.
                             </p>
                             <div class="slider-group" id="conf-group">
                                 <div class="slider-header">

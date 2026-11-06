@@ -612,12 +612,12 @@ if os.path.exists(nk_tif) and os.path.exists(nk_gj_path):
     assert _count_in_box(3020, 1210, 3135, 1268) == 0, "Batch 2 Img 5 Box 5D green trucks false positive"
     assert _count_in_box(3165, 1240, 3255, 1290) == 0, "Batch 2 Img 5 Box 5E green trucks false positive"
     sample_p = nk_feats[0].get("properties", {})
-    assert "relief_3d_score" in sample_p, "Missing V3.0 relief_3d_score on NK GeoJSON"
-    assert "artificial_cyan_score" in sample_p, "Missing V3.0 artificial_cyan_score on NK GeoJSON"
-    assert "foliage_prob" in sample_p, "Missing V3.0 foliage_prob on NK GeoJSON"
+    assert "relief_3d_score" in sample_p, "Missing V1.0 relief_3d_score on NK GeoJSON"
+    assert "artificial_cyan_score" in sample_p, "Missing V1.0 artificial_cyan_score on NK GeoJSON"
+    assert "foliage_prob" in sample_p, "Missing V1.0 foliage_prob on NK GeoJSON"
     nk_audit_verified = True
 
-# Verify V3.0 Pillar 1+2 Coupled Physical Scores & Compute Device Resolution
+# Verify V1.0 Pillar 1+2 Coupled Physical Scores & Compute Device Resolution
 from canopy_v2 import (
     compute_polygon_physical_scores,
     derive_feature_physical_scores,

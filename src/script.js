@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const samEl = document.getElementById('model-sam');
             if (window.location.hostname.endsWith('github.io')) {
                 statusIndicator.className = 'status-indicator online';
-                systemStatusEl.innerText = 'Interactive Demo Mode (V3.0)';
+                systemStatusEl.innerText = 'Interactive Demo Mode (V1.0)';
                 if (samEl) {
                     samEl.className = 'token-status active';
                     samEl.innerText = 'SAM3 + DF Ready';
@@ -706,7 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 samEl.className = 'token-status checking';
                 samEl.innerText = 'RGB Fallback';
-                samEl.title = h.message || 'SAM 3 unavailable; Canopy V2.2 running with RGB + Compact Geodesic Watershed support';
+                samEl.title = h.message || 'SAM 3 unavailable; CanopyGIS V1.0 running with RGB + Compact Geodesic Watershed support';
             }
         } catch (e) {
             samEl.className = 'token-status error';
@@ -1211,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const SITE_PRESETS = {
         onnut: {
-            name: 'On Nut Waste Center (ON · 580.11 Rai)',
+            name: 'On Nut Waste Center — 229.4 Acres (928,176 sqm)',
             lat: 13.714447,
             lon: 100.683989,
             width: 1540,
@@ -1219,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: OFFICIAL_ONNUT_POLYGON
         },
         nongkhaem: {
-            name: 'Nong Khaem Waste Center (NK · 379.93 Rai)',
+            name: 'Nong Khaem Center — 150.2 Acres (607,888 sqm)',
             lat: 13.718255,
             lon: 100.358126,
             width: 1260,
@@ -1227,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: OFFICIAL_NONGKHAEM_POLYGON
         },
         ramintra: {
-            name: 'Ramintra Sports Park (59.09 Rai)',
+            name: 'Ramintra Sports Park — 23.4 Acres (94,544 sqm)',
             lat: 13.879366,
             lon: 100.619659,
             width: 710,
@@ -1235,7 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: OFFICIAL_RAMINTRA_POLYGON
         },
         sapansung: {
-            name: 'Saphan Sung Public Park (Bangkok)',
+            name: 'Saphan Sung Park — 15.0 Acres (60,800 sqm)',
             lat: 13.768900,
             lon: 100.684500,
             width: 300,
@@ -1243,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: null
         },
         piyaphirom: {
-            name: 'Piyaphirom Public Park (Bangkok)',
+            name: 'Piyaphirom Public Park — 4.3 Acres (17,600 sqm)',
             lat: 13.743600,
             lon: 100.640900,
             width: 250,
@@ -1962,7 +1962,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sam3PromptVal = promptInput && promptInput.value.trim() ? promptInput.value.trim() : 'tree';
 
         addLog('Initializing canopy extraction request...');
-        addLog('Engine: Canopy V3.0 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Global Compact Geodesic Watershed)');
+        addLog('Engine: CanopyGIS V1.0 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Global Compact Geodesic Watershed)');
         addLog(`SAM 3 Prompt: "${sam3PromptVal}"`);
         addLog(`SAM 3 Instance Threshold: ${confSlider.value}`);
         addLog(`RGB Coverage Threshold: ${clampedCoverage}`);
@@ -2277,7 +2277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (raw === 'watershed_forest_crown' || raw.includes('watershed')) {
             return 'Compact Geodesic Watershed (watershed_forest_crown)';
         }
-        return sourceModel || geometryQuality || 'Canopy V2.3 Hybrid';
+        return sourceModel || geometryQuality || 'CanopyGIS V1.0 Hybrid';
     }
 
     function clearExtractedLayers() {
