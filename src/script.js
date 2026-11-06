@@ -1233,22 +1233,6 @@ document.addEventListener('DOMContentLoaded', () => {
             width: 710,
             length: 396,
             roiPolygon: OFFICIAL_RAMINTRA_POLYGON
-        },
-        sapansung: {
-            name: 'Saphan Sung Park — 15.0 Acres (60,800 sqm)',
-            lat: 13.768900,
-            lon: 100.684500,
-            width: 300,
-            length: 300,
-            roiPolygon: null
-        },
-        piyaphirom: {
-            name: 'Piyaphirom Public Park — 4.3 Acres (17,600 sqm)',
-            lat: 13.743600,
-            lon: 100.640900,
-            width: 250,
-            length: 250,
-            roiPolygon: null
         }
     };
 
@@ -1473,7 +1457,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const STATIC_PRESET_SESSIONS = {
         onnut: 'uploads/vhr_1793744238.json',
-        nongkhaem: 'uploads/vhr_1793780005.json'
+        nongkhaem: 'uploads/vhr_1793780005.json',
+        ramintra: 'uploads/vhr_1793704454.json'
     };
 
     async function restoreLatestBackendSession() {

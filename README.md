@@ -102,8 +102,8 @@ The web portal opens directly centered on the primary thesis site and supports 1
 | `ramintra` / `ramintra_sports_park` | **Ramintra Sports Park** (Primary Thesis Site · Bang Khen, Bangkok) | `13.878551°N, 100.619507°E` | `710 m × 396 m` (`10-vertex ROI`, `23.4 Acres (94,544 sqm)`) | **`1,432`** (`71.1%` conf) |
 | `onnut` / `on_nut_waste_center` (`ON`) | **On Nut Waste Center** (Official `229.4 Acres (928,176 sqm)` Campus Boundary) | `13.714447°N, 100.683909°E` | `1,540 m × 1,440 m` (`14-vertex ROI`, `229.4 Acres (928,176 sqm)`) | **`2,987`** (`68.4%` conf) |
 | `nongkhaem` / `nong_khaem_waste_center` (`NK`) | **Nong Khaem Waste Center** (Official `150.2 Acres (607,888 sqm)` BMA Boundary) | `13.718255°N, 100.358126°E` | `1,260 m × 1,250 m` (`93-vertex ROI`, `150.2 Acres (607,888 sqm)`) | **`2,110`** (`73.4%` conf) |
-| `saphansung` / `saphan_sung_park` | **Saphan Sung Public Park** (`15.0 Acres (60,800 sqm)` · Bangkok) | `13.768900°N, 100.684500°E` | `300 m × 300 m` (`15.0 Acres (60,800 sqm)`) | Interactive |
-| `piyaphirom` / `piyaphirom_park` | **Piyaphirom Public Park** (`4.3 Acres (17,600 sqm)` · Bangkok) | `13.743600°N, 100.640900°E` | `250 m × 250 m` (`4.3 Acres (17,600 sqm)`) | Interactive |
+
+
 
 ### 1.2 Google Satellite VHR Primary Tile Engine (`Zoom 19–22`)
 - **Unified VHR Provider (`Google VHR Satellite`)**: Zero-token pooled `ThreadPoolExecutor(max_workers=8)` fetcher requesting `scale=2` (`512×512 px`) tiles from `mt0–mt3.google.com/vt/lyrs=s` with automatic multi-zoom fallback (`z22 → z21 → z20 → z19`) and blank-tile variance verification (`std < 2.0` rejected).

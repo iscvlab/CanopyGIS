@@ -282,11 +282,6 @@ _PRESET_KEY_ALIASES = {
     "nongkhaem": "nongkhaem",
     "ramintra_sports_park": "ramintra",
     "ramintra": "ramintra",
-    "saphan_sung_park": "sapansung",
-    "saphansung": "sapansung",
-    "sapansung": "sapansung",
-    "piyaphirom_park": "piyaphirom",
-    "piyaphirom": "piyaphirom",
 }
 
 
