@@ -1,10 +1,12 @@
 # CanopyGIS — Hybrid Tri-Engine Urban Tree Canopy & Centroid Extraction (`SAM 3` + `Weecology DeepForest 2.1.0` + `Geodesic Watershed + RAG`)
 
-![Version](https://img.shields.io/badge/Version-v3.0.0-059669?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-2563eb?style=flat-square)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square)
-![Engines](https://img.shields.io/badge/Engines-SAM_3_%E2%80%A2_DeepForest_2.1_%E2%80%A2_Watershed_RAG-0f766e?style=flat-square)
-![Audit](https://img.shields.io/badge/Pre--Flight_Audit-PASS_100%25-16a34a?style=flat-square)
+[![Release](https://img.shields.io/badge/Release-v3.0.0-121417?style=flat-square)](https://github.com/napattan/CanopyGIS)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-GitHub_Pages-059669?style=flat-square)](https://napattan.github.io/CanopyGIS/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2563EB?style=flat-square)](./LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](./requirements.txt)
+[![Engines](https://img.shields.io/badge/Engines-SAM_3_%E2%80%A2_DeepForest_2.1_%E2%80%A2_Watershed_RAG-0F766E?style=flat-square)](#1-architecture--usage-workflow)
+[![Upstream](https://img.shields.io/badge/Upstream-Weecology%2FDeepForest_%231447_%26_%231440-D97706?style=flat-square)](https://github.com/weecology/DeepForest/issues/1447#issuecomment-6677900572)
+[![Lab](https://img.shields.io/badge/Lab-ISCV_%7C_Isocurve_Research_Lab_(%40iscvlab)-121417?style=flat-square&logo=github&logoColor=white)](https://github.com/iscvlab)
 
 **CanopyGIS** (`SAE-LIM` Sub-Engine `[D]`: Geo-AI Canopy Segmentation V2/V3) is an open-source computational landscape architecture and urban forestry platform developed for Bachelor's thesis research. It extracts continuous woody canopy coverage, individual tree-crown polygons, treetop centroids, and allometric attributes from georeferenced satellite/aerial imagery (`Google VHR Satellite` `Zoom 19–22` at `3.6–29.6 cm/px` or uploaded GeoTIFF/RGB files) without requiring airborne LiDAR—combining **`SAM 3` (`SamGeo3`)**, **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`)**, and **Marker-Controlled Compact Geodesic Watershed with 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing**.
 
@@ -17,7 +19,7 @@
 ## ⚡ TL;DR — Capabilities & Performance at a Glance
 
 - **Hybrid Tri-Engine Architecture (`SAM 3 + DeepForest 2.1.0 + Watershed + RAG`)**: Uses `SAM 3` for isolated standalone crowns (`Pass 1` + `Step 2A/2B/2C`), `Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`) for nadir treetop seed detection across tiled rasters (`1,050–8,698` raw candidate boxes per site), and 3-Pass `RAG` Geodesic Watershed to partition dense tropical closed-canopy stands.
-- **Zero-Install Pre-Loaded Interactive Demo**: Ships with pre-computed GeoJSON sessions for **`ศูนย์กำจัดมูลฝอยอ่อนนุช` (`On Nut`, `580.11 Rai`, `2,987` crowns)** and **`ศูนย์กำจัดมูลฝอยหนองแขม` (`Nong Khaem`, `379.93 Rai`, `2,110` crowns)** so anyone launching the web UI can immediately inspect crowns, toggle `SAM 3` / `DeepForest` / `Watershed` layers, and test `< 30 ms` real-time physical filter sliders without waiting for GPU inference.
+- **Zero-Install Pre-Loaded Interactive Demo**: Ships with pre-computed GeoJSON sessions for **`On Nut Waste Center` (`ON`, `580.11 Rai`, `2,987` crowns)** and **`Nong Khaem Waste Center` (`NK`, `379.93 Rai`, `2,110` crowns)** so anyone launching the web UI (or visiting the **[Live GitHub Pages Demo](https://napattan.github.io/CanopyGIS/)**) can immediately inspect crowns, toggle `SAM 3` / `DeepForest` / `Watershed` layers, and test `< 30 ms` real-time physical filter sliders without waiting for GPU inference.
 - **3-Pass `RAG` Small-Basin Coalescing**: Eliminates `-100%` of `< 4.0 m²` over-segmented watershed micro-shards (`1,568 → 0` on `On Nut`) and `-99.35%` of `< 8.0 m²` shoulder shards (`3,363 → 22`).
 - **Vectorized Shapely 2.0 Post-Processing**: Profiling `CanopyGIS` on multi-thousand-crown rasters surfaced and resolved key geometry construction and distance bottlenecks (`74×–421×` speedup on `format_boxes`, `match_points`, and `convert_to_sv_format`, contributed upstream to [`Weecology/DeepForest#1447`](https://github.com/weecology/DeepForest/issues/1447) and [`#1440`](https://github.com/weecology/DeepForest/issues/1440)).
 
@@ -97,11 +99,11 @@ The web portal opens directly centered on the primary thesis site and supports 1
 
 | Preset Key (`UI / API Alias`) | Site Name | Center Coordinates (`Lat, Lon`) | Default BBox & Official Polygon | Verified Crowns |
 | :--- | :--- | :--- | :---: | ---: |
-| `ramintra` / `ramintra_sports_park` | **สวนกีฬารามอินทรา** (Ramintra Sports Park · Primary Thesis Site) | `13.878551°N, 100.619507°E` | `710 m × 396 m` (`10-vertex ROI`, `~59.09 Rai`) | **`1,432`** (`71.1%` conf) |
-| `onnut` / `on_nut_waste_center` (`ON`) | **ศูนย์กำจัดมูลฝอยอ่อนนุช** (On Nut `580.11-Rai` Official Boundary) | `13.714447°N, 100.683909°E` | `1,540 m × 1,440 m` (`14-vertex ROI`, `580.11 Rai`) | **`2,987`** (`68.4%` conf) |
-| `nongkhaem` / `nong_khaem_waste_center` (`NK`) | **ศูนย์กำจัดมูลฝอยหนองแขม** (Nong Khaem `379.93-Rai` Official BMA Boundary) | `13.718255°N, 100.358126°E` | `1,260 m × 1,250 m` (`93-vertex ROI`, `379.93 Rai`) | **`2,110`** (`73.4%` conf) |
-| `saphansung` / `saphan_sung_park` | **สวนสาธารณะสะพานสูง** (Saphan Sung Park) | `13.768900°N, 100.684500°E` | `300 m × 300 m` | Interactive |
-| `piyaphirom` / `piyaphirom_park` | **สวนปิยะภิรมย์** (Piyaphirom Park) | `13.743600°N, 100.640900°E` | `250 m × 250 m` | Interactive |
+| `ramintra` / `ramintra_sports_park` | **Ramintra Sports Park** (Primary Thesis Site · Bang Khen, Bangkok) | `13.878551°N, 100.619507°E` | `710 m × 396 m` (`10-vertex ROI`, `~59.09 Rai`) | **`1,432`** (`71.1%` conf) |
+| `onnut` / `on_nut_waste_center` (`ON`) | **On Nut Waste Center** (Official `580.11-Rai` Campus Boundary) | `13.714447°N, 100.683909°E` | `1,540 m × 1,440 m` (`14-vertex ROI`, `580.11 Rai`) | **`2,987`** (`68.4%` conf) |
+| `nongkhaem` / `nong_khaem_waste_center` (`NK`) | **Nong Khaem Waste Center** (Official `379.93-Rai` BMA Boundary) | `13.718255°N, 100.358126°E` | `1,260 m × 1,250 m` (`93-vertex ROI`, `379.93 Rai`) | **`2,110`** (`73.4%` conf) |
+| `saphansung` / `saphan_sung_park` | **Saphan Sung Public Park** (Bangkok) | `13.768900°N, 100.684500°E` | `300 m × 300 m` | Interactive |
+| `piyaphirom` / `piyaphirom_park` | **Piyaphirom Public Park** (Bangkok) | `13.743600°N, 100.640900°E` | `250 m × 250 m` | Interactive |
 
 ### 1.2 Google Satellite VHR Primary Tile Engine (`Zoom 19–22`)
 - **Unified VHR Provider (`Google VHR Satellite`)**: Zero-token pooled `ThreadPoolExecutor(max_workers=8)` fetcher requesting `scale=2` (`512×512 px`) tiles from `mt0–mt3.google.com/vt/lyrs=s` with automatic multi-zoom fallback (`z22 → z21 → z20 → z19`) and blank-tile variance verification (`std < 2.0` rejected).

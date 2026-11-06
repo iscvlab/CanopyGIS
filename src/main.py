@@ -537,7 +537,7 @@ def _image_only_preview_bounds(width: int, height: int, assumed_gsd_m: float = 0
     """
     Place a non-georeferenced image on the map for visual QA only.
     Uses assumed GSD so crown shapes are relatively sized; location is NOT survey truth.
-    Centered at Ramintra Sports Park (สวนกีฬารามอินทรา) to match the default basemap.
+    Centered at Ramintra Sports Park (Bangkok) to match the default basemap.
     """
     center_lon = 100.6195068
     center_lat = 13.8785514

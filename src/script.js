@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------------------------------------
     // 1. Initialize Map & Basemaps with Pixel Zoom
     // ----------------------------------------------------
-    // Ramintra Sports Park (สวนกีฬารามอินทรา), Bang Khen, Bangkok — primary thesis site
+    // Ramintra Sports Park, Bang Khen, Bangkok — primary thesis site
     const defaultCenter = [13.878551, 100.619507];
     const map = L.map('map', {
         center: defaultCenter,
@@ -666,12 +666,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkSamModelStatus();
             }
         } catch (error) {
-            statusIndicator.className = 'status-indicator offline';
-            systemStatusEl.innerText = 'Backend Offline';
-            console.error('Failed to connect to FastAPI backend:', error);
-
             const samEl = document.getElementById('model-sam');
-            if (samEl) { samEl.className = 'token-status error'; samEl.innerText = 'Offline'; }
+            if (window.location.hostname.endsWith('github.io')) {
+                statusIndicator.className = 'status-indicator online';
+                systemStatusEl.innerText = 'Interactive Demo Mode (V3.0)';
+                if (samEl) {
+                    samEl.className = 'token-status active';
+                    samEl.innerText = 'SAM3 + DF Ready';
+                }
+            } else {
+                statusIndicator.className = 'status-indicator offline';
+                systemStatusEl.innerText = 'Backend Offline';
+                console.error('Failed to connect to FastAPI backend:', error);
+                if (samEl) { samEl.className = 'token-status error'; samEl.innerText = 'Offline'; }
+            }
         }
     }
 
@@ -1203,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const SITE_PRESETS = {
         onnut: {
-            name: 'ศูนย์กำจัดมูลฝอยอ่อนนุช (ON · 580.11-Rai Official Boundary)',
+            name: 'On Nut Waste Center (ON · 580.11 Rai)',
             lat: 13.714447,
             lon: 100.683989,
             width: 1540,
@@ -1211,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: OFFICIAL_ONNUT_POLYGON
         },
         nongkhaem: {
-            name: 'ศูนย์กำจัดมูลฝอยหนองแขม (NK · Official Boundary)',
+            name: 'Nong Khaem Waste Center (NK · 379.93 Rai)',
             lat: 13.718255,
             lon: 100.358126,
             width: 1260,
@@ -1219,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: OFFICIAL_NONGKHAEM_POLYGON
         },
         ramintra: {
-            name: 'สวนกีฬารามอินทรา (Ramintra Sports Park)',
+            name: 'Ramintra Sports Park (59.09 Rai)',
             lat: 13.879366,
             lon: 100.619659,
             width: 710,
@@ -1227,7 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: OFFICIAL_RAMINTRA_POLYGON
         },
         sapansung: {
-            name: 'สวนสาธารณะสะพานสูง (Saphan Sung Park)',
+            name: 'Saphan Sung Public Park (Bangkok)',
             lat: 13.768900,
             lon: 100.684500,
             width: 300,
@@ -1235,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roiPolygon: null
         },
         piyaphirom: {
-            name: 'สวนปิยะภิรมย์ (Piyaphirom Park)',
+            name: 'Piyaphirom Public Park (Bangkok)',
             lat: 13.743600,
             lon: 100.640900,
             width: 250,
@@ -1425,7 +1433,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (imageOverlayLayer && map.hasLayer(imageOverlayLayer)) {
                     map.removeLayer(imageOverlayLayer);
                 }
-                const imgUrl = `${BACKEND_URL}${metadata.preview_url}`;
+                const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.pathname.includes('/src/');
+                const imgUrl = (isStaticHost && metadata.preview_url.startsWith('/static_uploads/'))
+                    ? ('uploads/' + metadata.preview_url.slice('/static_uploads/'.length))
+                    : `${BACKEND_URL}${metadata.preview_url}`;
                 imageOverlayLayer = L.imageOverlay(imgUrl, bounds, {
                     opacity: 0.9,
                     interactive: false
@@ -1442,7 +1453,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (metadata.result_geojson_url) {
             try {
-                const gjRes = await fetch(`${BACKEND_URL}${metadata.result_geojson_url}`);
+                let gjRes = await fetch(`${BACKEND_URL}${metadata.result_geojson_url}`);
+                if (!gjRes.ok && metadata.result_geojson_url.startsWith('/static_uploads/')) {
+                    const relUrl = 'uploads/' + metadata.result_geojson_url.slice('/static_uploads/'.length);
+                    gjRes = await fetch(relUrl);
+                }
                 if (gjRes.ok) {
                     extractedGeoJson = await gjRes.json();
                     renderCanopies(extractedGeoJson);
@@ -1456,21 +1471,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const STATIC_PRESET_SESSIONS = {
+        onnut: 'uploads/vhr_1793744238.json',
+        nongkhaem: 'uploads/vhr_1793780005.json'
+    };
+
     async function restoreLatestBackendSession() {
         try {
             const res = await fetch(`${BACKEND_URL}/latest_session`, {
                 headers: { 'Accept': 'application/json' }
             });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (!data || !data.has_session || !data.metadata) return;
-
-            const metadata = data.metadata;
-            await applySessionMetadataToMap(metadata, true);
-            addLog('Restored saved site (' + (metadata.site_preset || 'custom') + '), search polygon (' + (currentRoiPolygon ? currentRoiPolygon.length + ' vertices' : 'BBox') + ')' + (metadata.filename ? ' & satellite raster (' + metadata.filename + ')' : '') + '.');
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.has_session && data.metadata) {
+                    const metadata = data.metadata;
+                    await applySessionMetadataToMap(metadata, true);
+                    addLog('Restored saved site (' + (metadata.site_preset || 'custom') + '), search polygon (' + (currentRoiPolygon ? currentRoiPolygon.length + ' vertices' : 'BBox') + ')' + (metadata.filename ? ' & satellite raster (' + metadata.filename + ')' : '') + '.');
+                    return;
+                }
+            }
         } catch (err) {
-            console.warn('Could not restore latest backend session:', err);
+            console.warn('Backend /latest_session unavailable, trying static demo session:', err);
         }
+        try {
+            const staticRes = await fetch('uploads/last_roi_session.json');
+            if (staticRes.ok) {
+                const metadata = await staticRes.json();
+                if (metadata && (metadata.center_lat !== undefined || metadata.result_geojson_url)) {
+                    await applySessionMetadataToMap(metadata, true);
+                    addLog('Loaded pre-computed interactive demo session (' + (metadata.site_preset || 'onnut') + ').');
+                }
+            }
+        } catch (_) {}
     }
 
     if (sitePresetSelect) {
@@ -1504,6 +1536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applySavedBoundary(boundaryToApply, true, true);
             addLog(`Selected site preset: ${preset.name} (${boundaryToApply.centerLat.toFixed(6)}, ${boundaryToApply.centerLon.toFixed(6)} · ${boundaryToApply.width}×${boundaryToApply.length} m · ${boundaryToApply.roiPolygon ? boundaryToApply.roiPolygon.length + ' polygon vertices' : 'BBox'})`);
 
+            let loadedSession = false;
             try {
                 const res = await fetch(`${BACKEND_URL}/latest_session?site_preset=${encodeURIComponent(key)}`, {
                     headers: { 'Accept': 'application/json' }
@@ -1513,9 +1546,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (data && data.has_session && data.metadata) {
                         await applySessionMetadataToMap(data.metadata, true);
                         addLog(`Loaded cached VHR raster (${data.metadata.filename}) for preset ${key.toUpperCase()}.`);
+                        loadedSession = true;
                     }
                 }
             } catch (_) {}
+            if (!loadedSession && STATIC_PRESET_SESSIONS[key]) {
+                try {
+                    const stRes = await fetch(STATIC_PRESET_SESSIONS[key]);
+                    if (stRes.ok) {
+                        const stMeta = await stRes.json();
+                        await applySessionMetadataToMap(stMeta, true);
+                        addLog(`Loaded pre-computed demo session (${stMeta.filename}) for preset ${key.toUpperCase()}.`);
+                    }
+                } catch (_) {}
+            }
         });
     }
 
@@ -1633,7 +1677,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 if (metadata.preview_url) {
-                    const imgUrl = `${BACKEND_URL}${metadata.preview_url}`;
+                    const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.pathname.includes('/src/');
+                const imgUrl = (isStaticHost && metadata.preview_url.startsWith('/static_uploads/'))
+                    ? ('uploads/' + metadata.preview_url.slice('/static_uploads/'.length))
+                    : `${BACKEND_URL}${metadata.preview_url}`;
                     imageOverlayLayer = L.imageOverlay(imgUrl, bounds, {
                         opacity: 0.9,
                         interactive: false
@@ -1855,7 +1902,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (metadata.preview_url) {
-                    const imgUrl = `${BACKEND_URL}${metadata.preview_url}`;
+                    const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.pathname.includes('/src/');
+                const imgUrl = (isStaticHost && metadata.preview_url.startsWith('/static_uploads/'))
+                    ? ('uploads/' + metadata.preview_url.slice('/static_uploads/'.length))
+                    : `${BACKEND_URL}${metadata.preview_url}`;
                     imageOverlayLayer = L.imageOverlay(imgUrl, bounds, {
                         opacity: 0.9,
                         interactive: false
