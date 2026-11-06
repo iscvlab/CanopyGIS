@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Canopy & Centroid GIS Portal</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Lucide Icons CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <i data-lucide="sprout" class="logo-icon"></i>
+                    <h1>CanopyGIS</h1>
+                </div>
+                <p class="subtitle">Plant Canopy & Centroid Extraction</p>
+            </div>
+
+            <!-- Sidebar Navigation Tabs -->
+            <nav class="sidebar-tabs">
+                <button class="sidebar-tab-btn active" data-tab="data" title="Source Imagery & Data Inputs">
+                    <i data-lucide="database"></i> Data
+                </button>
+                <button class="sidebar-tab-btn" data-tab="detection" title="Detection Settings & Models">
+                    <i data-lucide="cpu"></i> Detection
+                </button>
+                <button class="sidebar-tab-btn" data-tab="export" title="Export Extracted Datasets">
+                    <i data-lucide="upload"></i> Export
+                </button>
+            </nav>
+
+            <div class="sidebar-content">
+                <!-- Data Tab Pane -->
+                <div class="tab-pane active" id="tab-pane-data">
+                    <!-- Source Imagery Tab Switcher -->
+                    <div class="control-section">
+                        <label class="section-label">Source Imagery</label>
+                        <div class="tab-container-selector">
+                            <button id="tab-btn-satellite" class="tab-btn active" type="button" title="GEO mode: Google VHR extent">Map extent (GEO)</button>
+                            <button id="tab-btn-upload" class="tab-btn" type="button" title="Upload GeoTIFF (GEO) or plain JPG (IMAGE-ONLY)">Upload file</button>
+                        </div>
+                        <p class="input-label-small" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
+                            Canopy V2.3 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Compact Geodesic Watershed). <strong>GEO</strong> = real map coords · <strong>IMAGE-ONLY</strong> = plain JPG/PNG detection QA.
+                        </p>
+                        
+                        <div id="satellite-panel">
+                            <!-- Site Preset Selector -->
+                            <div style="margin-bottom: 10px;">
+                                <span class="input-label-small">Site Preset</span>
+                                <div class="select-wrapper" style="margin-top: 4px;">
+                                    <select id="site-preset-select" style="padding: 8px 12px; height: 34px; font-size: 12px;">
+                                        <option value="onnut" selected>ศูนย์กำจัดมูลฝอยอ่อนนุช (ON · 580.11-Rai Official Boundary)</option>
+                                        <option value="nongkhaem">ศูนย์กำจัดมูลฝอยหนองแขม (NK · Official Boundary)</option>
+                                        <option value="ramintra">สวนกีฬารามอินทรา (Ramintra Sports Park)</option>
+                                        <option value="sapansung">สวนสาธารณะสะพานสูง (Saphan Sung Park)</option>
+                                        <option value="piyaphirom">สวนปิยะภิรมย์ (Piyaphirom Park)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Coordinate Format Selector -->
+                            <div style="margin-bottom: 10px;">
+                                <span class="input-label-small">Coordinate Format</span>
+                                <div class="tab-container-selector" style="margin-bottom: 0; margin-top: 4px;">
+                                    <button id="coord-format-latlng" class="tab-btn active" type="button">Lat / Lng</button>
+                                    <button id="coord-format-utm" class="tab-btn" type="button">UTM (N/E)</button>
+                                </div>
+                            </div>
+
+                            <!-- Lat/Lng Inputs -->
+                            <div id="latlng-inputs-panel">
+                                <div class="input-row">
+                                    <div class="input-group">
+                                        <span class="input-label-small">Latitude</span>
+                                        <input type="number" id="input-lat" class="text-input" step="0.000001" placeholder="13.878551" value="13.878551">
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-label-small">Longitude</span>
+                                        <input type="number" id="input-lon" class="text-input" step="0.000001" placeholder="100.619507" value="100.619507">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- UTM (N/E) Inputs -->
+                            <div id="utm-inputs-panel" class="hidden">
+                                <div class="input-row" style="margin-bottom: 8px;">
+                                    <div class="input-group">
+                                        <span class="input-label-small">Zone</span>
+                                        <input type="number" id="input-utm-zone" class="text-input" value="47" min="1" max="60">
+                                    </div>
+                                    <div class="input-group" style="position: relative;">
+                                        <span class="input-label-small">Hemi</span>
+                                        <div class="select-wrapper">
+                                            <select id="input-utm-hemi" style="padding: 8px 12px; height: 32px; font-size: 12px;">
+                                                <option value="N" selected>N</option>
+                                                <option value="S">S</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="input-row">
+                                    <div class="input-group">
+                                        <span class="input-label-small">Northing (N)</span>
+                                        <input type="number" id="input-utm-northing" class="text-input" placeholder="1534901" value="1534901" step="0.001">
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-label-small">Easting (E)</span>
+                                        <input type="number" id="input-utm-easting" class="text-input" placeholder="674986" value="674986" step="0.001">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-row" style="margin-top: 8px;">
+                                <div class="input-group">
+                                    <span class="input-label-small">Width (m)</span>
+                                    <input type="number" id="input-width" class="text-input" value="250" min="50" max="2000">
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-label-small">Length (m)</span>
+                                    <input type="number" id="input-length" class="text-input" value="250" min="50" max="2000">
+                                </div>
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <span class="input-label-small">Resolution / Zoom</span>
+                                <div class="select-wrapper" style="margin-top: 4px;">
+                                    <select id="satellite-zoom-select" style="padding: 8px 12px; height: 32px; font-size: 12px;">
+                                        <option value="0" selected>Auto VHR (z21 · 7.2 cm/px Optimal)</option>
+                                        <option value="21">Zoom 21 VHR (7.2 cm/px · Best for SAM 3)</option>
+                                        <option value="22">Zoom 22 Ultra (3.6 cm/px · Max Visual Detail)</option>
+                                        <option value="20">Zoom 20 Native (14.5 cm/px · Fast)</option>
+                                        <option value="19">Zoom 19 Wide (29.0 cm/px)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="btn-grid" style="margin-top: 10px;">
+                                <button id="btn-draw-bbox" class="btn btn-secondary btn-half" type="button">Draw Polygon</button>
+                                <button id="btn-fetch-satellite" class="btn btn-primary btn-half" type="button">Fetch Data</button>
+                            </div>
+                        </div>
+
+                        <div id="upload-panel" class="hidden">
+                            <div id="drop-zone" class="drop-zone">
+                                <i data-lucide="upload-cloud" class="upload-icon"></i>
+                                <p class="upload-text">GeoTIFF (map-ready) or plain RGB (detect-only)</p>
+                                <span class="upload-or">or</span>
+                                <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">Browse Files</button>
+                                <input type="file" id="file-input" style="display: none;" accept=".tif,.tiff,.png,.jpg,.jpeg">
+                            </div>
+                            <p class="input-label-small" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
+                                GeoTIFF with CRS → GEO. JPG/PNG like drone export without CRS → IMAGE-ONLY (not for Rhino coords).
+                            </p>
+                        </div>
+
+                        <div id="file-info" class="file-info hidden">
+                            <div class="file-details">
+                                <span id="file-name" class="file-name">filename.tif</span>
+                                <span id="file-dims" class="file-dims">0 x 0 px</span>
+                            </div>
+                            <button id="btn-remove-file" class="btn-icon text-danger-hover">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+
+                        <!-- Pipeline mode banner (GEO vs IMAGE-ONLY) -->
+                        <div id="pipeline-mode-banner" class="hidden" style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.45; border: 1px solid var(--border-color);">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <span id="pipeline-mode-badge" style="font-weight: 700; font-size: 10px; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; text-transform: uppercase;"></span>
+                                <span id="pipeline-mode-title" style="font-weight: 600; color: var(--text-primary);"></span>
+                            </div>
+                            <p id="pipeline-mode-msg" style="margin: 0; color: var(--text-secondary);"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Tab Pane -->
+                <div class="tab-pane" id="tab-pane-detection">
+                    <!-- Model Parameters -->
+                    <div class="control-section" style="margin-bottom: 16px;">
+                        <label class="section-label">Engine</label>
+                        <input type="hidden" id="model-select" value="canopy_v2">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; background: rgba(92, 131, 83, 0.10); border: 1px solid rgba(92, 131, 83, 0.35);">
+                            <span style="font-weight: 700; font-size: 12px; color: var(--primary);">Canopy V2.5 Hybrid Tri-Engine</span>
+                            <span class="badge" style="font-size: 10px;">Active</span>
+                        </div>
+                        <p id="algorithm-description" class="input-label-small" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
+                            SAM 3 (Single &amp; Large Crowns + Negative Car Veto) + DeepForest 2.1 (Nadir Treetops) + 3D Woody Relief Watershed &amp; Anti-Cheat Confidence.
+                        </p>
+                    </div>
+
+                    <div class="control-section" id="sam3-prompt-group" style="margin-top: 0; margin-bottom: 16px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                        <span class="input-label-small">SAM 3 Text Prompt</span>
+                        <input type="text" id="sam3-prompt-input" class="text-input" value="tree" placeholder="e.g. tree" style="margin-top: 4px;">
+                        <div id="v2-mode-note" class="v2-mode-note">
+                            <strong>Pure-Canopy Contract.</strong> Countable individual crowns combine <code>sam3_native</code>, <code>deepforest_watershed</code>, and <code>watershed_forest_crown</code> partitions with pixel-level non-green clearing &amp; negative vehicle veto.
+                        </div>
+                        <div id="canopy-health-legend" style="margin-top: 10px; padding: 9px 10px; border-radius: 7px; background: var(--bg-card, rgba(15, 23, 42, 0.03)); border: 1px solid var(--border-color); font-size: 11px; line-height: 1.4;">
+                            <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Canopy Separation Confidence</span>
+                                <span style="font-weight: 600; font-size: 10px; color: var(--text-muted);">0–100% Calibrated</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px; color: var(--text-secondary);">
+                                <div style="display: flex; align-items: center; gap: 7px;">
+                                    <span style="width: 10px; height: 10px; border-radius: 3px; background: #059669; display: inline-block; flex-shrink: 0;"></span>
+                                    <span><strong>High Confidence (80–98%)</strong> — Verified Crown Separation</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 7px;">
+                                    <span style="width: 10px; height: 10px; border-radius: 3px; background: #2563eb; display: inline-block; flex-shrink: 0;"></span>
+                                    <span><strong>Good Confidence (60–79%)</strong> — Clear Treetop &amp; Relief</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 7px;">
+                                    <span style="width: 10px; height: 10px; border-radius: 3px; background: #eab308; display: inline-block; flex-shrink: 0;"></span>
+                                    <span><strong>Moderate Confidence (45–59%)</strong> — Closed-Canopy Split</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 7px;">
+                                    <span style="width: 10px; height: 10px; border-radius: 3px; background: #dc2626; display: inline-block; flex-shrink: 0;"></span>
+                                    <span><strong>Low Confidence (&lt;45%)</strong> — Ambiguous / Scrub Partition</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-color); font-size: 10px; color: var(--text-muted);">
+                                Default map display: <strong>Distinct Crowns (Adjacent-Different)</strong> · Toggle to <strong>Confidence Tiers</strong> in Map Layers.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label class="section-label" style="margin-bottom: 0;">Detection Settings</label>
+                            <button id="btn-toggle-help" style="background: none; border: none; padding: 4px; cursor: pointer; color: var(--primary); display: flex; align-items: center;" type="button" title="Explain settings">
+                                <i data-lucide="help-circle" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Settings Help Card -->
+                        <div id="settings-help-card" class="hidden" style="margin-bottom: 12px; padding: 10px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; font-size: 11px; line-height: 1.4; color: var(--text-secondary);">
+                            <p style="margin-top: 0; margin-bottom: 6px; font-weight: 600; color: var(--primary);">Canopy V2.2 Hybrid Tri-Engine Defaults:</p>
+                            <ul style="padding-left: 14px; margin: 0; display: flex; flex-direction: column; gap: 4px;">
+                                <li><strong>SAM 3 Instance Threshold (0.18):</strong> Confidence cutoff for solitary/open-grown SAM 3 crown instances.</li>
+                                <li><strong>DeepForest 2.1 + Watershed:</strong> Closed-canopy nadir treetop seeds + global compact geodesic watershed (compactness=0.005).</li>
+                                <li><strong>RGB Coverage Threshold (0.43):</strong> Vegetation support cutoff for semantic canopy union.</li>
+                                <li><strong>Tile Size (1280 px):</strong> Native-resolution sliding window with 384 px overlap.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Auto tuning / Manual Override Card -->
+                        <div id="auto-tune-card" style="margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(92, 131, 83, 0.08); border: 1px solid rgba(92, 131, 83, 0.3); transition: all 0.15s ease;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+                                <button type="button" id="btn-mode-auto-tune" style="padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--primary); background: var(--primary); color: #ffffff;">
+                                    Scene Auto-Tune
+                                </button>
+                                <button type="button" id="btn-mode-manual-override" style="padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-color); background: #ffffff; color: var(--text-secondary);">
+                                    Manual Override
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span id="auto-tune-title" style="font-weight: 700; font-size: 12px; color: var(--primary);">Auto tuning</span>
+                                        <span id="auto-tune-mode-pill" style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: rgba(92, 131, 83, 0.18); color: var(--primary);">SCENE AUTO</span>
+                                    </div>
+                                    <div id="auto-tune-summary" class="input-label-small" style="margin-top: 4px; line-height: 1.35;">
+                                        SAM 3 (Single Crowns) + DeepForest 2.1 (Closed-Canopy Nadir Detector) + Global Compact Geodesic Watershed · conf 0.18 · RGB 0.43 · Tile 1280px
+                                    </div>
+                                </div>
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;" title="Uncheck or move any slider below to switch to Manual Override mode">
+                                    <input type="checkbox" id="chk-auto-tune" checked style="cursor: pointer;">
+                                    <span id="chk-auto-tune-label">Auto On</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Advanced: all manual knobs (optional override) -->
+                        <button type="button" id="btn-toggle-advanced" class="btn btn-secondary btn-block" style="margin-top: 4px; font-size: 12px; padding: 8px 12px;">
+                            Advanced settings (optional)
+                        </button>
+                        <div id="advanced-settings" class="hidden" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                            <p class="input-label-small" style="margin-bottom: 10px; line-height: 1.35; color: var(--text-muted);">
+                                Manual Canopy V2 parameter overrides.
+                            </p>
+                            <div class="slider-group" id="conf-group">
+                                <div class="slider-header">
+                                    <span>SAM 3 Instance Threshold</span>
+                                    <span id="conf-val">0.18</span>
+                                </div>
+                                <input type="range" id="conf-slider" min="0.05" max="0.95" step="0.01" value="0.18">
+                            </div>
+                            <div class="slider-group" id="vari-group">
+                                <div class="slider-header">
+                                    <span>RGB Coverage Threshold</span>
+                                    <span id="vari-val">0.43</span>
+                                </div>
+                                <input type="range" id="vari-slider" min="0.10" max="0.90" step="0.01" value="0.43">
+                            </div>
+                            <div class="slider-group" id="v2-tile-group">
+                                <div class="slider-header">
+                                    <span>Tile Size (px)</span>
+                                    <span id="v2-tile-val">1280</span>
+                                </div>
+                                <input type="range" id="v2-tile-slider" min="768" max="2048" step="128" value="1280">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-header">
+                                    <span>Min Canopy Area (m²)</span>
+                                    <span id="min-area-val">0.5</span>
+                                </div>
+                                <input type="range" id="min-area-slider" min="0.1" max="50.0" step="0.1" value="0.5">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-header">
+                                    <span>Max Canopy Area (m²)</span>
+                                    <span id="max-area-val">2000</span>
+                                </div>
+                                <input type="range" id="max-area-slider" min="10" max="5000" step="10" value="2000">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-header">
+                                    <span>Default Tree Height (m) — estimate only</span>
+                                    <span id="height-val">10.0</span>
+                                </div>
+                                <input type="range" id="height-slider" min="2.0" max="30.0" step="0.5" value="10.0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <button id="btn-extract" class="btn btn-primary btn-block" style="margin-top: 10px;" disabled>
+                        <span class="btn-text">Run Extraction</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+
+                    <!-- Extraction Log Panel -->
+                    <div id="log-panel" class="hidden" style="margin-top: 12px; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background-color: var(--card-bg); font-family: monospace; font-size: 11px; max-height: 120px; overflow-y: auto; color: var(--text-secondary); line-height: 1.4;">
+                        <div id="log-content" style="white-space: pre-wrap; word-break: break-all;"></div>
+                    </div>
+                </div>
+
+                <!-- Export Tab Pane -->
+                <div class="tab-pane" id="tab-pane-export">
+                    <!-- Export Options -->
+                    <div class="control-section">
+                        <label class="section-label">Export Data</label>
+                        <div id="export-mode-note" class="hidden" style="margin-bottom: 12px; padding: 10px; border-radius: 8px; font-size: 11px; line-height: 1.4; background: rgba(217, 107, 82, 0.08); border: 1px solid rgba(217, 107, 82, 0.35); color: var(--text-secondary);">
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button id="btn-export-csv" class="btn btn-secondary" style="width: 100%;" disabled>
+                                <i data-lucide="file-spreadsheet" class="btn-svg"></i>
+                                Export CSV Centroids
+                            </button>
+                            <button id="btn-export-geojson" class="btn btn-secondary" style="width: 100%;" disabled>
+                                <i data-lucide="map" class="btn-svg"></i>
+                                <span id="btn-export-geojson-label">Export GeoJSON Boundaries</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 16px 24px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="status-indicator online"></span>
+                    <span id="system-status">Backend Connected (CUDA)</span>
+                </div>
+                <div id="token-status-panel" style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border-color); padding-top: 10px; width: 100%; font-size: 11px; color: var(--text-secondary);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Google VHR Satellite:</span>
+                        <span id="token-google" class="token-status active">Ready (z21–22)</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Hybrid AI (SAM 3 + DeepForest):</span>
+                        <span id="model-sam" class="token-status checking">Checking...</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Map Area -->
+        <main class="main-map-area" id="map-container">
+            <div id="map"></div>
+
+            <!-- Custom Map Layers & Display Panel (Top-Right) -->
+            <div id="map-layer-panel" class="map-layer-panel">
+                <div class="map-layer-header" id="map-layer-header-toggle">
+                    <div class="map-layer-title">
+                        <i data-lucide="layers" style="width: 15px; height: 15px; color: var(--primary);"></i>
+                        <span>Map Layers &amp; Display</span>
+                    </div>
+                    <button type="button" id="btn-toggle-layer-panel" class="btn-icon map-layer-collapse-btn" title="Collapse / Expand Layer Panel">
+                        <i data-lucide="chevron-up" style="width: 15px; height: 15px;"></i>
+                    </button>
+                </div>
+                <div id="map-layer-body" class="map-layer-body">
+                    <!-- Section 1: Base Map -->
+                    <div class="map-layer-section">
+                        <div class="map-layer-section-label">Base Map</div>
+                        <div class="basemap-pill-group" role="radiogroup" aria-label="Base Map">
+                            <button type="button" class="basemap-pill active" data-basemap="google">Google Satellite</button>
+                            <button type="button" class="basemap-pill" data-basemap="esri">Esri World Imagery</button>
+                            <button type="button" class="basemap-pill" data-basemap="osm">OpenStreetMap</button>
+                        </div>
+                    </div>
+
+                    <!-- Section 1B: Polygon Color Mode -->
+                    <div class="map-layer-section">
+                        <div class="map-layer-section-label">Polygon Color Mode</div>
+                        <div class="colormode-pill-group" role="radiogroup" aria-label="Polygon Color Mode">
+                            <button type="button" class="colormode-pill active" data-colormode="distinct" title="Adjacent-distinct crown colors (Graph Colored)">Distinct Crowns</button>
+                            <button type="button" class="colormode-pill" data-colormode="confidence" title="Color by separation confidence tier (Green/Blue/Yellow/Red)">Confidence Tiers</button>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Vector & Raster Overlays -->
+                    <div class="map-layer-section">
+                        <div class="map-layer-section-label">Vector &amp; Raster Overlays</div>
+                        <label class="layer-toggle-row" for="chk-layer-polygons">
+                            <input type="checkbox" id="chk-layer-polygons" checked>
+                            <span class="layer-swatch" style="background: #10b981; border: 1.5px solid #059669;"></span>
+                            <span class="layer-toggle-text">Canopy Polygons (Crowns)</span>
+                        </label>
+                        <label class="layer-toggle-row" for="chk-layer-points">
+                            <input type="checkbox" id="chk-layer-points" checked>
+                            <span class="layer-swatch layer-swatch-circle" style="background: #ffffff; border: 2px solid #059669;"></span>
+                            <span class="layer-toggle-text">Canopy Centroids (Points)</span>
+                        </label>
+                        <label class="layer-toggle-row" for="chk-layer-footprint">
+                            <input type="checkbox" id="chk-layer-footprint">
+                            <span class="layer-swatch" style="background: rgba(13, 148, 136, 0.25); border: 1.5px solid #0d9488;"></span>
+                            <span class="layer-toggle-text">Merged Forest Footprint</span>
+                        </label>
+                        <label class="layer-toggle-row" for="chk-layer-candidates">
+                            <input type="checkbox" id="chk-layer-candidates">
+                            <span class="layer-swatch" style="background: rgba(217, 119, 6, 0.22); border: 1.5px dashed #d97706;"></span>
+                            <span class="layer-toggle-text">Dense Crown Candidates</span>
+                        </label>
+                        <label class="layer-toggle-row" for="chk-layer-groups">
+                            <input type="checkbox" id="chk-layer-groups">
+                            <span class="layer-swatch" style="background: rgba(234, 88, 12, 0.22); border: 1.5px dashed #ea580c;"></span>
+                            <span class="layer-toggle-text">Unresolved Crown Groups</span>
+                        </label>
+                        <label class="layer-toggle-row" for="chk-layer-bounds">
+                            <input type="checkbox" id="chk-layer-bounds" checked>
+                            <span class="layer-swatch" style="background: rgba(59, 130, 246, 0.12); border: 1.5px dashed #3b82f6;"></span>
+                            <span class="layer-toggle-text">Search Area Polygon</span>
+                        </label>
+                        <label class="layer-toggle-row" for="chk-layer-raster">
+                            <input type="checkbox" id="chk-layer-raster">
+                            <span class="layer-swatch" style="background: #64748b; border: 1.5px solid #475569;"></span>
+                            <span class="layer-toggle-text">Downloaded Raster Overlay</span>
+                        </label>
+                    </div>
+
+                    <!-- Section 3: Live Post-Processing Filters (<30ms) -->
+                    <div class="map-layer-section" style="border-bottom: none; padding-bottom: 2px;">
+                        <div class="live-filter-header-row">
+                            <div class="map-layer-section-label" style="margin-bottom: 0;">Live Post-Filters (&lt;30ms)</div>
+                            <button type="button" id="btn-reset-live-filters" class="btn-reset-live" title="Reset all live post-processing filters">Reset</button>
+                        </div>
+                        <div id="live-filter-count-badge" class="live-filter-badge">All Crowns Active</div>
+
+                        <div class="layer-slider-group">
+                            <div class="layer-slider-header">
+                                <span>Polygon Fill Opacity</span>
+                                <span id="val-poly-opacity">40%</span>
+                            </div>
+                            <input type="range" id="slider-poly-opacity" min="0" max="85" step="5" value="40">
+                        </div>
+                        <div class="layer-slider-group">
+                            <div class="layer-slider-header">
+                                <span>Min Confidence Filter</span>
+                                <span id="val-min-conf">0%</span>
+                            </div>
+                            <input type="range" id="slider-min-conf" min="0" max="90" step="5" value="0">
+                        </div>
+                        <div class="layer-slider-group">
+                            <div class="layer-slider-header" title="Reject flat grass/turf lacking 3D woody shadow relief">
+                                <span>Grass / Flat-Surface Filter (3D Relief)</span>
+                                <span id="val-min-relief">0%</span>
+                            </div>
+                            <input type="range" id="slider-min-relief" min="0" max="75" step="5" value="0">
+                        </div>
+                        <div class="layer-slider-group">
+                            <div class="layer-slider-header" title="Reject synthetic cyan-green painted roofs, courts, or trucks">
+                                <span>Cyan Roof / Vehicle Rejection</span>
+                                <span id="val-max-cyan">0%</span>
+                            </div>
+                            <input type="range" id="slider-max-cyan" min="0" max="80" step="5" value="0">
+                        </div>
+                        <div class="layer-slider-group">
+                            <div class="layer-slider-header">
+                                <span>Min Crown Area (m²)</span>
+                                <span id="val-live-min-area">0 m²</span>
+                            </div>
+                            <input type="range" id="slider-live-min-area" min="0" max="50" step="1" value="0">
+                        </div>
+                        <div class="layer-slider-group">
+                            <div class="layer-slider-header">
+                                <span>Max Crown Area (m²)</span>
+                                <span id="val-live-max-area">1000 m²</span>
+                            </div>
+                            <input type="range" id="slider-live-max-area" min="50" max="1000" step="25" value="1000">
+                        </div>
+                        <div class="layer-slider-group" style="margin-bottom: 0;">
+                            <div class="layer-slider-header">
+                                <span>Source Engine Filter</span>
+                            </div>
+                            <div class="engine-pill-group" id="engine-filter-pills">
+                                <button type="button" class="engine-pill active" data-engine="sam3" title="Toggle SAM 3 Native Crowns">SAM 3</button>
+                                <button type="button" class="engine-pill active" data-engine="deepforest_2.1" title="Toggle DeepForest 2.1 Crowns">DeepForest</button>
+                                <button type="button" class="engine-pill active" data-engine="compact_watershed" title="Toggle Geodesic Watershed Crowns">Watershed</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Details Drawer Panel (Collapsible) -->
+            <div id="detail-drawer" class="detail-drawer collapsed">
+                <button id="btn-close-drawer" class="btn-close-drawer" title="Close Details">
+                    <i data-lucide="x"></i>
+                </button>
+                <div class="drawer-header">
+                    <h3>Canopy Details</h3>
+                    <span id="drawer-tree-id-badge" class="badge">#0</span>
+                </div>
+                <div class="drawer-content">
+                    <!-- Polaroid Crop Frame -->
+                    <div class="polaroid-card">
+                        <div class="polaroid-photo">
+                            <canvas id="polaroid-canvas"></canvas>
+                        </div>
+                        <div class="polaroid-caption">Tree Crown #<span id="polaroid-id-text">0</span></div>
+                    </div>
+
+                    <!-- Confidence & Volume Indicators -->
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span>Confidence (%)</span>
+                                <span id="drawer-ndvi-val" class="metric-val">0.0%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div id="drawer-ndvi-bar" class="progress-bar" style="width: 0%;"></div>
+                            </div>
+                            <span id="drawer-health-label" class="metric-sub">Unknown</span>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span>Est. Volume</span>
+                                <span id="drawer-volume-val" class="metric-val">0.00 m³</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div id="drawer-volume-bar" class="progress-bar secondary" style="width: 0%;"></div>
+                            </div>
+                            <span id="drawer-volume-label" class="metric-sub">Allometric Est.</span>
+                        </div>
+                    </div>
+
+                    <!-- Detailed table properties -->
+                    <div class="drawer-table-wrapper">
+                        <table class="drawer-table">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Source Engine</strong></td>
+                                    <td id="drawer-source-model">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Centroid Lat</strong></td>
+                                    <td id="drawer-lat">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Centroid Lon</strong></td>
+                                    <td id="drawer-lng">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Canopy Area</strong></td>
+                                    <td id="drawer-area">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Crown Diameter</strong></td>
+                                    <td id="drawer-diameter">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Est. Height</strong></td>
+                                    <td id="drawer-height">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Est. DBH</strong></td>
+                                    <td id="drawer-dbh">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>3D Crown Relief</strong></td>
+                                    <td id="drawer-relief">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Foliage Vigor</strong></td>
+                                    <td id="drawer-foliage">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Cyan / Artificial</strong></td>
+                                    <td id="drawer-cyan">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Table & Metrics Drawer -->
+            <div class="metrics-drawer collapsed" id="metrics-drawer">
+                <div class="drawer-header" id="drawer-toggle">
+                    <div class="drawer-title" onclick="event.stopPropagation()">
+                        <h3>Extracted Canopies Summary</h3>
+                        <span id="canopy-count-badge" class="badge">0 detected</span>
+                        <button id="btn-toggle-filters" class="btn-icon" title="Toggle Search Filters" style="margin-left: 10px;">
+                            <i data-lucide="filter" style="width: 15px; height: 15px;"></i>
+                        </button>
+                    </div>
+                    <button class="btn-icon drawer-arrow">
+                        <i data-lucide="chevron-up" class="drawer-arrow"></i>
+                    </button>
+                </div>
+                <div class="drawer-body">
+                    <div class="table-container">
+                        <table id="canopy-table">
+                            <thead>
+                                <tr class="header-row">
+                                    <th data-col="tree_id" style="cursor: pointer;">Tree ID <span class="sort-icon"></span></th>
+                                    <th data-col="centroid" style="cursor: pointer;">Centroid Lat/Lon <span class="sort-icon"></span></th>
+                                    <th data-col="area_m2" style="cursor: pointer;">Canopy Area <span class="sort-icon"></span></th>
+                                    <th data-col="crown_diameter_m" style="cursor: pointer;">Crown Diam <span class="sort-icon"></span></th>
+                                    <th data-col="estimated_height_m" style="cursor: pointer;">Est. Height <span class="sort-icon"></span></th>
+                                    <th data-col="estimated_dbh_cm" style="cursor: pointer;">Est. DBH <span class="sort-icon"></span></th>
+                                    <th data-col="estimated_volume_m3" style="cursor: pointer;">Est. Volume <span class="sort-icon"></span></th>
+                                    <th data-col="confidence_pct" style="cursor: pointer;">Confidence (%) <span class="sort-icon"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                                <tr id="filter-row" class="filter-row hidden">
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="tree_id"></th>
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="centroid"></th>
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="area_m2"></th>
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="crown_diameter_m"></th>
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="estimated_height_m"></th>
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="estimated_dbh_cm"></th>
+                                    <th><input type="text" placeholder="Search..." class="filter-input" data-col="estimated_volume_m3"></th>
+                                    <th><input type="text" placeholder="e.g. >75" class="filter-input" data-col="confidence_pct"></th>
+                                    <th><button id="btn-clear-filters" class="btn-zoom" title="Clear Filters" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear</button></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="empty-state">
+                                    <td colspan="9">Draw a search polygon or upload a raster and run extraction to populate results.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Main Script -->
+    <script src="script.js?v=3.0.3"></script>
+</body>
+</html>

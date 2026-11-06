@@ -1,0 +1,40 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Secrets & Environment
+.env
+src/.env
+
+# Heavy GeoTIFF rasters, backups, logs & Windows shortcuts
+*.tif
+*.tiff
+*.pth
+*.pt
+*.onnx
+*.lnk
+backups/
+lightning_logs/
+src/lightning_logs/
+models/
+.vscode/
+.DS_Store
+Thumbs.db
+active_tunnel.url
+
+# Ignore transient uploads except pre-computed sample GeoJSON & preview sessions
+uploads/*
+src/uploads/*
+!src/uploads/last_roi_session.json
+!src/uploads/vhr_1793744238.json
+!src/uploads/vhr_1793744238_preview.jpg
+!src/uploads/vhr_1793744238_result.geojson
+!src/uploads/v2_run_1793759037.json
+!src/uploads/vhr_1793780005.json
+!src/uploads/vhr_1793780005_preview.jpg
+!src/uploads/vhr_1793780005_result.geojson
+!src/uploads/v2_run_1793784121.json
