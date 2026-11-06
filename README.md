@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](./requirements.txt)
 [![Engines](https://img.shields.io/badge/Engines-SAM_3_%E2%80%A2_DeepForest_2.1_%E2%80%A2_Watershed_RAG-0F766E?style=flat-square)](#1-architecture--usage-workflow)
 [![Upstream](https://img.shields.io/badge/Upstream-Weecology%2FDeepForest_%231447_%26_%231440-D97706?style=flat-square)](https://github.com/weecology/DeepForest/issues/1447#issuecomment-6677900572)
-[![Lab](https://img.shields.io/badge/Lab-ISCV_%7C_Isocurve_Research_Lab_(%40iscvlab)-121417?style=flat-square&logo=github&logoColor=white)](https://github.com/iscvlab)
+[![Lab](https://img.shields.io/badge/Lab-ISCV_%7C_Isocurve_Research_Lab_%28%40iscvlab%29-121417?style=flat-square&logo=github&logoColor=white)](https://github.com/iscvlab)
 
 **CanopyGIS** (`SAE-LIM` Sub-Engine `[D]`: Geo-AI Canopy Segmentation V2/V3) is an open-source computational landscape architecture and urban forestry platform developed for Bachelor's thesis research. It extracts continuous woody canopy coverage, individual tree-crown polygons, treetop centroids, and allometric attributes from georeferenced satellite/aerial imagery (`Google VHR Satellite` `Zoom 19–22` at `3.6–29.6 cm/px` or uploaded GeoTIFF/RGB files) without requiring airborne LiDAR—combining **`SAM 3` (`SamGeo3`)**, **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`)**, and **Marker-Controlled Compact Geodesic Watershed with 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing**.
 
