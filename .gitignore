@@ -38,3 +38,7 @@ src/uploads/*
 !src/uploads/vhr_1793780005_preview.jpg
 !src/uploads/vhr_1793780005_result.geojson
 !src/uploads/v2_run_1793784121.json
+!src/uploads/vhr_1793704454.json
+!src/uploads/vhr_1793704454_preview.jpg
+!src/uploads/vhr_1793704454_result.geojson
+!src/uploads/v2_run_1793972973.json

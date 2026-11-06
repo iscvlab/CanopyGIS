@@ -1,0 +1,76 @@
+{
+  "pipeline_version": "canopy_v2_prototype",
+  "task": "coverage_instances_dense_candidates_groups",
+  "prompt": "tree",
+  "tile_size": 1280,
+  "tile_overlap": 384,
+  "tiles_processed": 18,
+  "tiles_total": 18,
+  "failed_tiles": 0,
+  "skipped_barren_tiles": 0,
+  "vehicle_vetoed": 3,
+  "individual_count": 1462,
+  "mean_confidence_pct": 70.6,
+  "high_confidence_count": 409,
+  "good_confidence_count": 817,
+  "moderate_confidence_count": 232,
+  "low_confidence_count": 4,
+  "group_count": 208,
+  "dense_candidate_count": 1,
+  "dense_tiles_processed": 4,
+  "dense_candidate_method": "marker_controlled_rgb_watershed",
+  "dense_marker_spacing_px": 39,
+  "deepforest_boxes": 978,
+  "deepforest_verified": 466,
+  "coverage_polygon_count": 364,
+  "coverage_percent": 19.06,
+  "unresolved_canopy_percent": 17.75,
+  "rgb_supported_coverage_pixels": 2132207,
+  "runtime_seconds": 103.61,
+  "sam_error": null,
+  "coverage_preview_url": "/static_uploads/v2_coverage_1793972973.png",
+  "probability_preview_url": "/static_uploads/v2_probability_1793972973.png",
+  "count_note": "Only SAM individual_tree features enter the provisional count. Dense watershed candidates and RGB crown groups are clickable review layers and are not silently counted.",
+  "roi_polygon": [
+    [
+      13.8811468,
+      100.616371
+    ],
+    [
+      13.8790533,
+      100.6165051
+    ],
+    [
+      13.8775847,
+      100.6164408
+    ],
+    [
+      13.877642,
+      100.6180555
+    ],
+    [
+      13.8778503,
+      100.621596
+    ],
+    [
+      13.8790429,
+      100.621891
+    ],
+    [
+      13.8798918,
+      100.6225187
+    ],
+    [
+      13.8804282,
+      100.6228298
+    ],
+    [
+      13.8810479,
+      100.6229478
+    ],
+    [
+      13.8808812,
+      100.6192893
+    ]
+  ]
+}

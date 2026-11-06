@@ -1,0 +1,94 @@
+{
+  "filename": "vhr_1793704454.tif",
+  "file_path": "uploads/vhr_1793704454.tif",
+  "is_geotiff": true,
+  "width": 4899,
+  "height": 2732,
+  "bounds": {
+    "south": 13.877587335737443,
+    "west": 100.61637407043017,
+    "north": 13.881144664262555,
+    "east": 100.62294392956983
+  },
+  "crs": "EPSG:4326",
+  "preview_url": "/static_uploads/vhr_1793704454_preview.jpg",
+  "ndvi_file_path": null,
+  "ndvi_preview_url": null,
+  "ndvi_date": null,
+  "include_ndvi": false,
+  "imagery_source": "google.satellite.vhr",
+  "zoom": 20,
+  "gsd_m": 0.1449,
+  "gsd_m_nominal": 0.1449,
+  "high_dpi": true,
+  "center_lat": 13.879366,
+  "center_lon": 100.619659,
+  "width_m": 710.0,
+  "length_m": 396.0,
+  "pipeline_mode": "geo",
+  "georef_quality": "satellite_approx",
+  "mode_message": "GEO mode (google.satellite.vhr z20, GSD ~0.145 m/px): real WGS84 bounds ready for SAM 3 + Watershed.",
+  "roi_polygon": [
+    [
+      13.8811468,
+      100.616371
+    ],
+    [
+      13.8790533,
+      100.6165051
+    ],
+    [
+      13.8775847,
+      100.6164408
+    ],
+    [
+      13.877642,
+      100.6180555
+    ],
+    [
+      13.8778503,
+      100.621596
+    ],
+    [
+      13.8790429,
+      100.621891
+    ],
+    [
+      13.8798918,
+      100.6225187
+    ],
+    [
+      13.8804282,
+      100.6228298
+    ],
+    [
+      13.8810479,
+      100.6229478
+    ],
+    [
+      13.8808812,
+      100.6192893
+    ]
+  ],
+  "site_preset": "ramintra",
+  "auto_tune": {
+    "gsd_m": 0.1449,
+    "effective_gsd_m": 0.1449,
+    "haze_offset": 0.0,
+    "scene_gray_p1": 1.0,
+    "scene_gray_p99": 222.0,
+    "contrast_span": 221.0,
+    "foliage_pct": 30.9,
+    "cyan_industrial_pct": 7.3,
+    "v2_instance_threshold": 0.18,
+    "v2_coverage_threshold": 0.43,
+    "v2_tile_size": 1280,
+    "min_area_m2": 0.5,
+    "max_area_m2": 260,
+    "default_height_m": 10.0,
+    "atmosphere_regime": "Clear-Sky VHR",
+    "summary_text": "Scene-Calibrated (Clear-Sky VHR \u00b7 GSD 0.14m/px \u00b7 30.9% foliage) \u2192 conf 0.18 \u00b7 RGB 0.43 \u00b7 Tile 1280px \u00b7 Area 0.5\u2013260m\u00b2"
+  },
+  "result_geojson_url": "/static_uploads/vhr_1793704454_result.geojson",
+  "last_segmented_at": 1793972974420
+}
