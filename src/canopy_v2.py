@@ -7,9 +7,16 @@ from typing import Callable, Optional
 
 import cv2
 import numpy as np
-from scipy.ndimage import find_objects
+from scipy.ndimage import binary_fill_holes, find_objects
 from skimage.feature import peak_local_max
 from skimage.segmentation import watershed
+
+try:
+    from shapely.geometry import box as _shapely_box
+    from shapely.strtree import STRtree as _STRtree
+except Exception:  # pragma: no cover
+    _shapely_box = None
+    _STRtree = None
 
 try:
     import torch
@@ -786,7 +793,11 @@ def carve_non_overlapping_crowns(
     min_area_px: int = 25,
     initial_occupied: Optional[np.ndarray] = None,
 ) -> tuple[list[dict], np.ndarray]:
-    """Carve mutually exclusive, non-overlapping crown polygons sorted by score."""
+    """
+    Carve mutually exclusive, planar, hole-free (Euler == 1) crown polygons.
+    Uses Symmetric Voronoi Partitioning on contested inter-crown shoulder zones
+    followed by rasterization-safe zero-overlap contour extraction.
+    """
     occupied = (
         initial_occupied.copy()
         if initial_occupied is not None
@@ -818,7 +829,11 @@ def carve_non_overlapping_crowns(
     open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     sep_kernel = np.ones((3, 3), dtype=np.uint8)
 
-    carved: list[dict] = []
+    # Pass 1: Filter near-duplicate proposals (IoM >= iom_reject) and collect local masks
+    accepted: list[tuple[int, int, int, int, np.ndarray, dict]] = []
+    prelim_occ = (occupied > 0).copy()
+    count_grid = np.zeros((height, width), dtype=np.uint16)
+
     for _, _, cand in prepared:
         contour = np.asarray(cand["contour"]).copy()
         rx, ry, rw, rh = cv2.boundingRect(contour)
@@ -837,20 +852,71 @@ def carve_non_overlapping_crowns(
         shifted[:, 0, 1] -= by
         cv2.drawContours(cand_roi, [shifted], -1, 255, -1)
         cand_roi = cv2.morphologyEx(cand_roi, cv2.MORPH_CLOSE, close_kernel)
+        cand_bool = binary_fill_holes(cand_roi > 0)
+        if initial_occupied is not None:
+            cand_bool &= ~(occupied[by:by2, bx:bx2] > 0)
 
-        occ_roi = occupied[by:by2, bx:bx2]
-        cand_px = cv2.countNonZero(cand_roi)
+        cand_px = int(np.count_nonzero(cand_bool))
         if cand_px < min_area_px:
             continue
-        inter_px = cv2.countNonZero(cv2.bitwise_and(cand_roi, occ_roi))
+        inter_px = int(np.count_nonzero(cand_bool & prelim_occ[by:by2, bx:bx2]))
         if inter_px / max(1.0, float(cand_px)) >= iom_reject:
             continue
 
-        if inter_px > 0:
-            cand_roi = cv2.bitwise_and(cand_roi, cv2.bitwise_not(occ_roi))
-            cand_roi = cv2.morphologyEx(cand_roi, cv2.MORPH_OPEN, open_kernel)
-            if cv2.countNonZero(cand_roi) < min_area_px:
-                continue
+        prelim_occ[by:by2, bx:bx2] |= cand_bool
+        count_grid[by:by2, bx:bx2][cand_bool] += 1
+        accepted.append((bx, by, bx2, by2, cand_bool, cand))
+
+    if not accepted:
+        return [], occupied
+
+    # Pass 2: Symmetric Geodesic / Voronoi Partition of contested shoulder pixels (count_grid >= 2)
+    owner_grid = np.zeros((height, width), dtype=np.int32)
+    core_seeds = np.zeros((height, width), dtype=np.int32)
+    for k_id, (bx, by, bx2, by2, cand_bool, _) in enumerate(accepted, start=1):
+        core_m = cand_bool & (count_grid[by:by2, bx:bx2] == 1)
+        if int(np.count_nonzero(core_m)) >= 4:
+            owner_grid[by:by2, bx:bx2][core_m] = k_id
+            core_seeds[by:by2, bx:bx2][core_m] = k_id
+        else:
+            # Fallback point seed at distance-transform peak if wholly shared shoulder
+            dt_c = cv2.distanceTransform(cand_bool.astype(np.uint8), cv2.DIST_L2, 3)
+            py_c, px_c = np.unravel_index(int(np.argmax(dt_c)), dt_c.shape)
+            if core_seeds[by + int(py_c), bx + int(px_c)] == 0:
+                core_seeds[by + int(py_c), bx + int(px_c)] = k_id
+
+    contested = count_grid >= 2
+    if np.any(contested) and np.any(core_seeds > 0):
+        union_domain = count_grid >= 1
+        inv_cores = (core_seeds == 0).astype(np.uint8)
+        dist_from_core = cv2.distanceTransform(inv_cores, cv2.DIST_L2, 5)
+        ws_part = watershed(dist_from_core, core_seeds, mask=union_domain, compactness=0.0)
+        owner_grid[contested] = ws_part[contested]
+
+    # Pass 3: Extract hole-free single-component (Euler == 1) non-overlapping contours
+    carved: list[dict] = []
+    for k_id, (bx, by, bx2, by2, cand_bool, cand) in enumerate(accepted, start=1):
+        bh, bw = by2 - by, bx2 - bx
+        part_bool = cand_bool & (owner_grid[by:by2, bx:bx2] == k_id)
+        occ_roi = occupied[by:by2, bx:bx2]
+        part_bool &= ~(occ_roi > 0)
+        if int(np.count_nonzero(part_bool)) < min_area_px:
+            continue
+
+        cand_roi = (part_bool.astype(np.uint8)) * 255
+        cand_roi = cv2.morphologyEx(cand_roi, cv2.MORPH_OPEN, open_kernel)
+        cand_roi = (binary_fill_holes(cand_roi > 0) & ~(occ_roi > 0)).astype(np.uint8) * 255
+        if cv2.countNonZero(cand_roi) < min_area_px:
+            continue
+
+        # Enforce largest 4-connected component (guarantees single-component topology)
+        n_cc, cc_lbl, cc_stats, _ = cv2.connectedComponentsWithStats(cand_roi, connectivity=4)
+        if n_cc <= 1:
+            continue
+        best_cc = 1 + int(np.argmax(cc_stats[1:, cv2.CC_STAT_AREA]))
+        if int(cc_stats[best_cc, cv2.CC_STAT_AREA]) < min_area_px:
+            continue
+        cand_roi = (binary_fill_holes(cc_lbl == best_cc) & ~(occ_roi > 0)).astype(np.uint8) * 255
 
         contours, _ = cv2.findContours(
             cand_roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
@@ -868,7 +934,8 @@ def carve_non_overlapping_crowns(
         if len(approx_c) >= 3 and cv2.contourArea(approx_c) >= min_area_px:
             test_roi = np.zeros_like(cand_roi)
             cv2.drawContours(test_roi, [approx_c], -1, 255, -1)
-            if cv2.countNonZero(cv2.bitwise_and(test_roi, occ_roi)) == 0:
+            n_cc_t, _ = cv2.connectedComponents(test_roi, connectivity=4)
+            if cv2.countNonZero(cv2.bitwise_and(test_roi, occ_roi)) == 0 and (n_cc_t - 1) == 1:
                 final_c = approx_c
 
         final_roi = np.zeros_like(cand_roi)
@@ -903,6 +970,24 @@ def carve_non_overlapping_crowns(
                 cv2.drawContours(final_roi, [final_c], -1, 255, -1)
                 if cv2.countNonZero(cv2.bitwise_and(final_roi, occ_roi)) > 0:
                     continue
+
+        # Final 4-connected Euler == 1 verification after contour rasterization
+        n_cc_f, cc_lbl_f, cc_st_f, _ = cv2.connectedComponentsWithStats(final_roi, connectivity=4)
+        if n_cc_f <= 1:
+            continue
+        if (n_cc_f - 1) > 1:
+            best_f = 1 + int(np.argmax(cc_st_f[1:, cv2.CC_STAT_AREA]))
+            if int(cc_st_f[best_f, cv2.CC_STAT_AREA]) < min_area_px:
+                continue
+            clean_f = ((cc_lbl_f == best_f).astype(np.uint8)) * 255
+            cnts_f, _ = cv2.findContours(clean_f, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not cnts_f:
+                continue
+            final_c = max(cnts_f, key=cv2.contourArea)
+            final_roi.fill(0)
+            cv2.drawContours(final_roi, [final_c], -1, 255, -1)
+            if cv2.countNonZero(cv2.bitwise_and(final_roi, occ_roi)) > 0:
+                continue
 
         out_contour = final_c.copy()
         out_contour[:, 0, 0] += bx
@@ -2782,13 +2867,31 @@ def split_dense_canopy_watershed(
     lab_l = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2LAB)[:, :, 0].astype(
         np.float32
     )
+    crev_win = max(5, min(25, int(round(0.85 / max(gsd_m, 0.03))))) | 1
+    crev_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (crev_win, crev_win))
+    blackhat_l = cv2.morphologyEx(lab_l, cv2.MORPH_BLACKHAT, crev_k)
+    bh_p95 = float(np.percentile(blackhat_l[unresolved > 0], 95)) if np.any(unresolved > 0) else 1.0
+    shadow_crevices = np.clip(blackhat_l / max(bh_p95, 6.0), 0.0, 1.0)
+
     max_crown_rad_px = max(12.0, 5.5 / max(gsd_m, 0.02))
-    dist_norm = np.clip(dist_to_bg / max_crown_rad_px, 0.0, 1.5) * 100.0
-    surface = (
-        0.45 * dist_norm
-        + 0.35 * lab_l
-        + 0.20 * np.clip(exg + 80.0, 0.0, 255.0)
-    )
+    if coarse_or_hazy:
+        dist_norm = np.clip(dist_to_bg / max_crown_rad_px, 0.0, 1.5) * 100.0
+        surface = (
+            0.45 * dist_norm
+            + 0.35 * lab_l
+            + 0.20 * np.clip(exg + 80.0, 0.0, 255.0)
+        )
+    else:
+        crevice_free = (unresolved > 0) & (shadow_crevices < 0.42)
+        dist_crev = cv2.distanceTransform(crevice_free.astype(np.uint8), cv2.DIST_L2, 5)
+        dist_eff = 0.55 * dist_to_bg + 0.45 * dist_crev
+        dist_norm = np.clip(dist_eff / max_crown_rad_px, 0.0, 1.5) * 100.0
+        surface = (
+            0.45 * dist_norm
+            + 0.35 * lab_l
+            + 0.20 * np.clip(exg + 80.0, 0.0, 255.0)
+            - 28.0 * shadow_crevices
+        )
     sigma = max(2.0, 0.45 / max(gsd_m, 0.02))
     surface = cv2.GaussianBlur(surface, (0, 0), sigma)
 
@@ -3021,21 +3124,27 @@ def split_dense_canopy_watershed(
                     ),
                 )
                 if local_k < min_needed or split_pass > 0:
-                    bh, bw = b_mask.shape
-                    for gy in range(sub_step // 2, bh, sub_step):
-                        for gx in range(sub_step // 2, bw, sub_step):
-                            if b_mask[gy, gx] and b_occ[gy, gx] == 0:
-                                local_k += 1
-                                cv2.circle(
-                                    b_occ,
-                                    (gx, gy),
-                                    max(6, sub_step // 2),
-                                    255,
-                                    -1,
-                                )
-                                cv2.circle(
-                                    b_markers, (gx, gy), 1, local_k, -1
-                                )
+                    # Physical medial-axis + radiometric local maxima (zero Cartesian grid chopping)
+                    sec_peaks = peak_local_max(
+                        b_dist + 0.35 * surface[b_sl],
+                        min_distance=max(8, int(round(sub_step * 0.62))),
+                        labels=b_u8,
+                        exclude_border=False,
+                    )
+                    for py_s, px_s in sec_peaks:
+                        py_i, px_i = int(py_s), int(px_s)
+                        if b_mask[py_i, px_i] and b_occ[py_i, px_i] == 0:
+                            local_k += 1
+                            cv2.circle(
+                                b_occ,
+                                (px_i, py_i),
+                                max(5, int(round(sub_step * 0.45))),
+                                255,
+                                -1,
+                            )
+                            cv2.circle(
+                                b_markers, (px_i, py_i), 1, local_k, -1
+                            )
                 if local_k >= 2:
                     b_ws = watershed(
                         -b_surf, b_markers, mask=b_mask, compactness=0.012
@@ -3052,58 +3161,82 @@ def split_dense_canopy_watershed(
             if not any_split:
                 break
 
-        # Region-Adjacency-Graph (RAG) small-basin coalescing:
-        # Absorb over-segmented shoulder shards (< 13.5 m2) into the adjacent watershed
-        # basin with the longest shared boundary, preserving isolated standalone small trees.
-        coalesce_min_px = max(
-            min_area_px * 2,
-            int(round(13.5 / max(gsd_m ** 2, 1e-6))),
-        )
-        collar_min_px = max(
-            min_area_px,
-            int(round(6.5 / max(gsd_m ** 2, 1e-6))),
-        )
-        k3_rag = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        for _rag_pass in range(3):
-            rag_slices = find_objects(labels_ws)
-            small_basins: list[tuple[int, int, tuple[slice, slice]]] = []
-            for b_id, b_sl in enumerate(rag_slices, start=1):
-                if b_sl is None:
-                    continue
-                b_cnt = int(np.count_nonzero(labels_ws[b_sl] == b_id))
-                if 0 < b_cnt < coalesce_min_px:
-                    small_basins.append((b_cnt, b_id, b_sl))
-            if not small_basins:
-                break
-            small_basins.sort(key=lambda item: item[0])
-            merged_any = False
-            for b_cnt, b_id, b_sl in small_basins:
-                y0_r = max(0, b_sl[0].start - 2)
-                y1_r = min(height, b_sl[0].stop + 2)
-                x0_r = max(0, b_sl[1].start - 2)
-                x1_r = min(width, b_sl[1].stop + 2)
-                sub_ws = labels_ws[y0_r:y1_r, x0_r:x1_r]
-                b_mask = sub_ws == b_id
-                cur_cnt = int(np.count_nonzero(b_mask))
-                if cur_cnt == 0 or cur_cnt >= coalesce_min_px:
-                    continue
-                dil = cv2.dilate(b_mask.astype(np.uint8), k3_rag, iterations=1) > 0
-                border_labels = sub_ws[dil & (~b_mask) & (sub_ws > 0)]
-                if border_labels.size > 0:
-                    uniq_l, counts_l = np.unique(border_labels, return_counts=True)
-                    best_nbr = int(uniq_l[int(np.argmax(counts_l))])
-                    nbr_total = int(np.count_nonzero(labels_ws == best_nbr))
-                    if nbr_total + cur_cnt <= max_region_px:
-                        sub_ws[b_mask] = best_nbr
+    # Vectorized 1D-LUT Region-Adjacency-Graph (RAG) small-basin coalescing (PAT-RAG-01):
+    # Absorb over-segmented intra-crown shards into the adjacent watershed basin with the
+    # longest non-shadowed shared boundary, using O(1) np.bincount area lookups.
+    coalesce_min_px = (
+        max(min_area_px * 2, int(round(13.5 / max(gsd_m ** 2, 1e-6))))
+        if coarse_or_hazy
+        else max(min_area_px, int(round(4.5 / max(gsd_m ** 2, 1e-6))))
+    )
+    collar_min_px = (
+        max(min_area_px, int(round(6.5 / max(gsd_m ** 2, 1e-6))))
+        if coarse_or_hazy
+        else 0
+    )
+    k3_rag = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    for _rag_pass in range(3):
+        area_lut = np.bincount(labels_ws.ravel())
+        rag_slices = find_objects(labels_ws)
+        small_basins: list[tuple[int, int, tuple[slice, slice]]] = []
+        for b_id, b_sl in enumerate(rag_slices, start=1):
+            if b_sl is None or b_id >= len(area_lut):
+                continue
+            b_cnt = int(area_lut[b_id])
+            if 0 < b_cnt < coalesce_min_px:
+                small_basins.append((b_cnt, b_id, b_sl))
+        if not small_basins:
+            break
+        small_basins.sort(key=lambda item: item[0])
+        merged_any = False
+        for _, b_id, b_sl in small_basins:
+            cur_cnt = int(area_lut[b_id]) if b_id < len(area_lut) else 0
+            if cur_cnt == 0 or cur_cnt >= coalesce_min_px:
+                continue
+            y0_r = max(0, b_sl[0].start - 2)
+            y1_r = min(height, b_sl[0].stop + 2)
+            x0_r = max(0, b_sl[1].start - 2)
+            x1_r = min(width, b_sl[1].stop + 2)
+            sub_ws = labels_ws[y0_r:y1_r, x0_r:x1_r]
+            b_mask = sub_ws == b_id
+            actual_cnt = int(np.count_nonzero(b_mask))
+            if actual_cnt == 0 or actual_cnt >= coalesce_min_px:
+                continue
+            dil = cv2.dilate(b_mask.astype(np.uint8), k3_rag, iterations=1) > 0
+            rim = dil & (~b_mask) & (sub_ws > 0)
+            border_labels = sub_ws[rim]
+            if border_labels.size > 0:
+                uniq_l, counts_l = np.unique(border_labels, return_counts=True)
+                order = np.argsort(-counts_l)
+                sub_crev = shadow_crevices[y0_r:y1_r, x0_r:x1_r]
+                did_merge = False
+                for ord_i in order:
+                    cand_nbr = int(uniq_l[int(ord_i)])
+                    if not coarse_or_hazy:
+                        nbr_rim = rim & (sub_ws == cand_nbr)
+                        if float(sub_crev[nbr_rim].mean()) >= 0.52:
+                            continue
+                    nbr_total = int(area_lut[cand_nbr]) if cand_nbr < len(area_lut) else int(np.count_nonzero(labels_ws == cand_nbr))
+                    if nbr_total + actual_cnt <= max_region_px:
+                        sub_ws[b_mask] = cand_nbr
+                        if cand_nbr < len(area_lut):
+                            area_lut[cand_nbr] += actual_cnt
+                        if b_id < len(area_lut):
+                            area_lut[b_id] = 0
                         merged_any = True
-                        continue
-                if cur_cnt < collar_min_px:
-                    sub_excl = exclusion[y0_r:y1_r, x0_r:x1_r] > 0
-                    if np.any(dil & sub_excl):
-                        sub_ws[b_mask] = 0
-                        merged_any = True
-            if not merged_any:
-                break
+                        did_merge = True
+                        break
+                if did_merge:
+                    continue
+            if collar_min_px > 0 and actual_cnt < collar_min_px:
+                sub_excl = exclusion[y0_r:y1_r, x0_r:x1_r] > 0
+                if np.any(dil & sub_excl):
+                    sub_ws[b_mask] = 0
+                    if b_id < len(area_lut):
+                        area_lut[b_id] = 0
+                    merged_any = True
+        if not merged_any:
+            break
 
     k5_reg = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     slices = find_objects(labels_ws)
@@ -3144,6 +3277,18 @@ def split_dense_canopy_watershed(
             )
             if len(contour) < 3:
                 continue
+
+            # F-08: Morphological Shape Guard (purge concave shadow crevices & linear streaks)
+            hull = cv2.convexHull(contour)
+            hull_area = float(cv2.contourArea(hull))
+            solidity = (cnt_area / hull_area) if hull_area > 0 else 0.0
+            if solidity < 0.52:
+                continue
+            if len(contour) >= 5:
+                (_, _), (ma_w, ma_h), _ = cv2.fitEllipse(contour)
+                aspect = max(ma_w, ma_h) / max(min(ma_w, ma_h), 1e-4)
+                if aspect > 2.85 and solidity < 0.75:
+                    continue
 
             local_cnt_mask = np.zeros_like(reg_mask)
             cv2.drawContours(local_cnt_mask, [contour], -1, 255, -1)
@@ -3608,69 +3753,117 @@ def assign_adjacent_distinct_colors(
     adj: list[set[int]] = [set() for _ in range(n)]
     buf_f = float(buffer_px)
 
-    for i in range(n):
+    def _check_pair_adjacent(i: int, j: int) -> bool:
         pb_i = pboxes[i]
         ring_i = rings[i]
         rb_i = ring_bboxes[i]
         geo_i = ring_is_geo[i]
-        di = diams[i]
-        for j in range(i + 1, n):
-            pb_j = pboxes[j]
-            ring_j = rings[j]
-            rb_j = ring_bboxes[j]
-            geo_j = ring_is_geo[j]
-            dj = diams[j]
-            min_diam_m = min(di, dj)
-            is_adjacent = False
+        pb_j = pboxes[j]
+        ring_j = rings[j]
+        rb_j = ring_bboxes[j]
+        geo_j = ring_is_geo[j]
+        min_diam_m = min(diams[i], diams[j])
 
-            if pb_i is not None and pb_j is not None:
-                xi, yi, wi, hi = pb_i
-                xj, yj, wj, hj = pb_j
-                if (
-                    xi - buf_f <= xj + wj + buf_f
-                    and xj - buf_f <= xi + wi + buf_f
-                    and yi - buf_f <= yj + hj + buf_f
-                    and yj - buf_f <= yi + hi + buf_f
-                ):
-                    if ring_i is not None and ring_j is not None:
-                        if geo_i and geo_j:
-                            thresh_m = max(1.8, 0.15 * min_diam_m)
-                            dist_m = _min_ring_distance(ring_i, ring_j) * 111320.0
-                            is_adjacent = dist_m <= thresh_m
-                        else:
-                            dist_px = _min_ring_distance(ring_i, ring_j)
-                            is_adjacent = dist_px <= buf_f
-                    else:
-                        dx = max(0.0, xi - (xj + wj), xj - (xi + wi))
-                        dy = max(0.0, yi - (yj + hj), yj - (yi + hi))
-                        is_adjacent = (dx * dx + dy * dy) <= (buf_f * buf_f)
-            elif ring_i is not None and ring_j is not None and rb_i is not None and rb_j is not None:
-                rx0_i, ry0_i, rx1_i, ry1_i = rb_i
-                rx0_j, ry0_j, rx1_j, ry1_j = rb_j
-                if geo_i and geo_j:
-                    thresh_m = max(2.0, 0.15 * min_diam_m)
-                    deg_pad = thresh_m / 111320.0
-                    if (
-                        rx0_i - deg_pad <= rx1_j + deg_pad
-                        and rx0_j - deg_pad <= rx1_i + deg_pad
-                        and ry0_i - deg_pad <= ry1_j + deg_pad
-                        and ry0_j - deg_pad <= ry1_i + deg_pad
-                    ):
+        if pb_i is not None and pb_j is not None:
+            xi, yi, wi, hi = pb_i
+            xj, yj, wj, hj = pb_j
+            if (
+                xi - buf_f <= xj + wj + buf_f
+                and xj - buf_f <= xi + wi + buf_f
+                and yi - buf_f <= yj + hj + buf_f
+                and yj - buf_f <= yi + hi + buf_f
+            ):
+                if ring_i is not None and ring_j is not None:
+                    if geo_i and geo_j:
+                        thresh_m = max(1.8, 0.15 * min_diam_m)
                         dist_m = _min_ring_distance(ring_i, ring_j) * 111320.0
-                        is_adjacent = dist_m <= thresh_m
-                else:
-                    if (
-                        rx0_i - buf_f <= rx1_j + buf_f
-                        and rx0_j - buf_f <= rx1_i + buf_f
-                        and ry0_i - buf_f <= ry1_j + buf_f
-                        and ry0_j - buf_f <= ry1_i + buf_f
-                    ):
-                        dist_px = _min_ring_distance(ring_i, ring_j)
-                        is_adjacent = dist_px <= buf_f
+                        return dist_m <= thresh_m
+                    dist_px = _min_ring_distance(ring_i, ring_j)
+                    return dist_px <= buf_f
+                dx = max(0.0, xi - (xj + wj), xj - (xi + wi))
+                dy = max(0.0, yi - (yj + hj), yj - (yi + hi))
+                return (dx * dx + dy * dy) <= (buf_f * buf_f)
+            return False
+        if ring_i is not None and ring_j is not None and rb_i is not None and rb_j is not None:
+            rx0_i, ry0_i, rx1_i, ry1_i = rb_i
+            rx0_j, ry0_j, rx1_j, ry1_j = rb_j
+            if geo_i and geo_j:
+                thresh_m = max(2.0, 0.15 * min_diam_m)
+                deg_pad = thresh_m / 111320.0
+                if (
+                    rx0_i - deg_pad <= rx1_j + deg_pad
+                    and rx0_j - deg_pad <= rx1_i + deg_pad
+                    and ry0_i - deg_pad <= ry1_j + deg_pad
+                    and ry0_j - deg_pad <= ry1_i + deg_pad
+                ):
+                    dist_m = _min_ring_distance(ring_i, ring_j) * 111320.0
+                    return dist_m <= thresh_m
+                return False
+            if (
+                rx0_i - buf_f <= rx1_j + buf_f
+                and rx0_j - buf_f <= rx1_i + buf_f
+                and ry0_i - buf_f <= ry1_j + buf_f
+                and ry0_j - buf_f <= ry1_i + buf_f
+            ):
+                dist_px = _min_ring_distance(ring_i, ring_j)
+                return dist_px <= buf_f
+        return False
 
-            if is_adjacent:
-                adj[i].add(j)
-                adj[j].add(i)
+    if _STRtree is not None and _shapely_box is not None and n >= 16:
+        # PAT-GRAPH-01: O(N log N) STRtree candidate pruning with 100% brute-force edge parity
+        checked_pairs: set[tuple[int, int]] = set()
+        pb_indices = [idx for idx, pb in enumerate(pboxes) if pb is not None]
+        if len(pb_indices) >= 2:
+            pb_geoms = [
+                _shapely_box(
+                    pboxes[idx][0] - buf_f,
+                    pboxes[idx][1] - buf_f,
+                    pboxes[idx][0] + pboxes[idx][2] + buf_f,
+                    pboxes[idx][1] + pboxes[idx][3] + buf_f,
+                )
+                for idx in pb_indices
+            ]
+            pb_tree = _STRtree(pb_geoms)
+            for pos_i, geom_i in enumerate(pb_geoms):
+                i = pb_indices[pos_i]
+                for pos_j in pb_tree.query(geom_i):
+                    j = pb_indices[int(pos_j)]
+                    if j <= i:
+                        continue
+                    checked_pairs.add((i, j))
+                    if _check_pair_adjacent(i, j):
+                        adj[i].add(j)
+                        adj[j].add(i)
+
+        has_missing_pb = len(pb_indices) < n
+        if has_missing_pb:
+            max_diam = max(diams) if diams else 4.0
+            rb_indices = [idx for idx, rb in enumerate(ring_bboxes) if rb is not None]
+            if len(rb_indices) >= 2:
+                rb_geoms = []
+                for idx in rb_indices:
+                    rx0, ry0, rx1, ry1 = ring_bboxes[idx]
+                    pad = (max(2.0, 0.15 * max_diam) / 111320.0) if ring_is_geo[idx] else buf_f
+                    rb_geoms.append(_shapely_box(rx0 - pad, ry0 - pad, rx1 + pad, ry1 + pad))
+                rb_tree = _STRtree(rb_geoms)
+                for pos_i, geom_i in enumerate(rb_geoms):
+                    i = rb_indices[pos_i]
+                    for pos_j in rb_tree.query(geom_i):
+                        j = rb_indices[int(pos_j)]
+                        if j <= i or (i, j) in checked_pairs:
+                            continue
+                        if pboxes[i] is not None and pboxes[j] is not None:
+                            continue
+                        checked_pairs.add((i, j))
+                        if _check_pair_adjacent(i, j):
+                            adj[i].add(j)
+                            adj[j].add(i)
+    else:
+        for i in range(n):
+            for j in range(i + 1, n):
+                if _check_pair_adjacent(i, j):
+                    adj[i].add(j)
+                    adj[j].add(i)
 
     rng = np.random.default_rng(n)
     tie_rank = rng.permutation(n).tolist()
