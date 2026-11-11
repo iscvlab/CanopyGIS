@@ -183,6 +183,24 @@ def compute_strict_foliage_mask(image_rgb: np.ndarray) -> np.ndarray:
         foliage_cond = (
             foliage_cond | haze_foliage | rayleigh_olive_canopy | dusty_textured_canopy
         )
+    else:
+        gray_fol = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
+        lap_fol = cv2.blur(
+            np.abs(cv2.Laplacian(gray_fol, cv2.CV_32F)), (5, 5)
+        )
+        mean_g = cv2.blur(gray_fol, (7, 7))
+        sq_g = cv2.blur(gray_fol * gray_fol, (7, 7))
+        std_fol = np.sqrt(np.maximum(0.0, sq_g - mean_g * mean_g))
+        clear_sky_olive_woody = (
+            (g >= r - 8.0)
+            & (g >= b + 6.0)
+            & (exg >= 2.0)
+            & (lap_fol >= 11.5)
+            & (std_fol >= 10.5)
+            & (bright >= 22.0)
+            & (bright <= 175.0)
+        )
+        foliage_cond = foliage_cond | clear_sky_olive_woody
 
     foliage = foliage_cond.astype(np.uint8) * 255
     k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -241,7 +259,7 @@ def compute_woody_canopy_relief_mask(
     local_lap = cv2.blur(lap, (k, k))
 
     se_shadow = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE, (k_shadow, k_shadow)
+        cv2.MORPH_RECT, (k_shadow, k_shadow)
     )
     local_max_l = cv2.dilate(lab_l, se_shadow)
     local_min_l = cv2.erode(lab_l, se_shadow)
@@ -820,21 +838,28 @@ def carve_non_overlapping_crowns(
         if area < min_area_px:
             continue
         score = float(item.get("score", 0.0))
+        perim_in = float(cv2.arcLength(contour, True))
+        pre_circ = (
+            (4.0 * np.pi * area) / (perim_in ** 2)
+            if perim_in > 1e-6
+            else 0.5
+        )
+        priority = score * (0.85 + 0.15 * min(1.0, pre_circ / 0.55))
         out_item = dict(item)
         out_item["area"] = area
-        prepared.append((score, area, out_item))
+        prepared.append((priority, score, area, out_item))
 
-    prepared.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    prepared.sort(key=lambda entry: (entry[0], entry[1], entry[2]), reverse=True)
     close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     sep_kernel = np.ones((3, 3), dtype=np.uint8)
 
     # Pass 1: Filter near-duplicate proposals (IoM >= iom_reject) and collect local masks
-    accepted: list[tuple[int, int, int, int, np.ndarray, dict]] = []
+    accepted: list[tuple[int, int, int, int, int, np.ndarray, dict]] = []
     prelim_occ = (occupied > 0).copy()
     count_grid = np.zeros((height, width), dtype=np.uint16)
 
-    for _, _, cand in prepared:
+    for _, _, _, cand in prepared:
         contour = np.asarray(cand["contour"]).copy()
         rx, ry, rw, rh = cv2.boundingRect(contour)
         bx = max(0, rx - 2)
@@ -853,6 +878,7 @@ def carve_non_overlapping_crowns(
         cv2.drawContours(cand_roi, [shifted], -1, 255, -1)
         cand_roi = cv2.morphologyEx(cand_roi, cv2.MORPH_CLOSE, close_kernel)
         cand_bool = binary_fill_holes(cand_roi > 0)
+        raw_cand_px = int(np.count_nonzero(cand_bool))
         if initial_occupied is not None:
             cand_bool &= ~(occupied[by:by2, bx:bx2] > 0)
 
@@ -865,7 +891,7 @@ def carve_non_overlapping_crowns(
 
         prelim_occ[by:by2, bx:bx2] |= cand_bool
         count_grid[by:by2, bx:bx2][cand_bool] += 1
-        accepted.append((bx, by, bx2, by2, cand_bool, cand))
+        accepted.append((bx, by, bx2, by2, raw_cand_px, cand_bool, cand))
 
     if not accepted:
         return [], occupied
@@ -873,7 +899,7 @@ def carve_non_overlapping_crowns(
     # Pass 2: Symmetric Geodesic / Voronoi Partition of contested shoulder pixels (count_grid >= 2)
     owner_grid = np.zeros((height, width), dtype=np.int32)
     core_seeds = np.zeros((height, width), dtype=np.int32)
-    for k_id, (bx, by, bx2, by2, cand_bool, _) in enumerate(accepted, start=1):
+    for k_id, (bx, by, bx2, by2, _, cand_bool, _) in enumerate(accepted, start=1):
         core_m = cand_bool & (count_grid[by:by2, bx:bx2] == 1)
         if int(np.count_nonzero(core_m)) >= 4:
             owner_grid[by:by2, bx:bx2][core_m] = k_id
@@ -895,7 +921,7 @@ def carve_non_overlapping_crowns(
 
     # Pass 3: Extract hole-free single-component (Euler == 1) non-overlapping contours
     carved: list[dict] = []
-    for k_id, (bx, by, bx2, by2, cand_bool, cand) in enumerate(accepted, start=1):
+    for k_id, (bx, by, bx2, by2, cand_px, cand_bool, cand) in enumerate(accepted, start=1):
         bh, bw = by2 - by, bx2 - bx
         part_bool = cand_bool & (owner_grid[by:by2, bx:bx2] == k_id)
         occ_roi = occupied[by:by2, bx:bx2]
@@ -989,6 +1015,46 @@ def carve_non_overlapping_crowns(
             if cv2.countNonZero(cv2.bitwise_and(final_roi, occ_roi)) > 0:
                 continue
 
+        final_area = float(cv2.contourArea(final_c))
+        if cand_px >= max(min_area_px * 3, 180) or final_area >= 900.0:
+            keep_ratio = final_area / float(max(1, cand_px))
+            final_perim = float(cv2.arcLength(final_c, True))
+            final_circ = (
+                (4.0 * np.pi * final_area) / (final_perim ** 2)
+                if final_perim > 1e-6
+                else 0.0
+            )
+            final_hull = max(1.0, float(cv2.contourArea(cv2.convexHull(final_c))))
+            final_sol = final_area / final_hull
+            (_, _), (rw_f, rh_f), _ = cv2.minAreaRect(final_c)
+            final_asp = max(rw_f, rh_f) / max(1.0, min(rw_f, rh_f))
+            drop_carved_rind = cand_px >= max(min_area_px * 3, 180) and (
+                (keep_ratio < 0.45 and (final_circ < 0.36 or final_sol < 0.76))
+                or (
+                    keep_ratio < 0.68
+                    and (
+                        final_circ < 0.28
+                        or final_sol < 0.68
+                        or (final_asp > 2.20 and final_sol < 0.78)
+                    )
+                )
+                or (
+                    keep_ratio < 0.84
+                    and (
+                        final_circ < 0.19
+                        or final_sol < 0.60
+                        or (final_asp > 2.45 and final_sol < 0.76)
+                    )
+                )
+            )
+            drop_extreme_sliver = final_area >= 900.0 and (
+                (final_circ < 0.14 and final_sol < 0.62)
+                or final_sol < 0.50
+                or (final_asp > 2.80 and final_sol < 0.74)
+            )
+            if drop_carved_rind or drop_extreme_sliver:
+                continue
+
         out_contour = final_c.copy()
         out_contour[:, 0, 0] += bx
         out_contour[:, 0, 1] += by
@@ -997,7 +1063,7 @@ def carve_non_overlapping_crowns(
         )
         out_item = dict(cand)
         out_item["contour"] = out_contour
-        out_item["area"] = float(cv2.contourArea(out_contour))
+        out_item["area"] = final_area
         carved.append(out_item)
 
     return carved, occupied
@@ -1262,6 +1328,7 @@ def run_sam3_tiled(
     strict_foliage: Optional[np.ndarray] = None,
     woody_relief_mask: Optional[np.ndarray] = None,
     enable_car_prompt: bool = True,
+    allow_emergent_shield: bool = True,
 ) -> tuple[list[dict], np.ndarray, dict]:
     """Run SAM 3 per native-resolution tile with centroid ownership and negative car veto."""
     height, width = image_rgb.shape[:2]
@@ -1291,10 +1358,32 @@ def run_sam3_tiled(
         min_area_px + 1,
         int(round(single_crown_max_m2 / max(gsd_m ** 2, 1e-6))),
     )
-    single_crown_max_px = (
+    frame_single_cap_px = max(
+        min_area_px * 2,
+        int(0.095 * height * width),
+    )
+    caller_single_px = (
         min(int(max_area_px), default_single_px)
-        if int(max_area_px) == 160000
+        if int(max_area_px) in (100000, 160000)
         else max(min_area_px + 1, int(max_area_px))
+    )
+    single_crown_max_px = max(
+        min_area_px + 1,
+        min(frame_single_cap_px, caller_single_px),
+    )
+    caller_uses_standard_cap = int(max_area_px) >= int(
+        0.80 * min(default_single_px, frame_single_cap_px)
+    )
+    emergent_crown_max_px = (
+        max(
+            single_crown_max_px,
+            min(
+                int(0.16 * height * width),
+                int(round((np.pi * (20.0 ** 2)) / max(gsd_m, 0.005) ** 2)),
+            ),
+        )
+        if (allow_emergent_shield and caller_uses_standard_cap)
+        else single_crown_max_px
     )
     large_crown_thresh_px = int(round(85.0 / max(gsd_m ** 2, 1e-6)))
     max_border_touch_px = max(24, int(tile_size * 0.038))
@@ -1494,14 +1583,27 @@ def run_sam3_tiled(
                     and foliage_ratio >= min_fol_ratio
                     and 13.0 <= brightness <= 185.0
                 )
-                if not allow_trimmed_foliage_gate and (
-                    foliage_ratio < min_fol_ratio
-                    or g_m <= r_m
-                    or not vari_ok
-                    or gli < gli_min_sam
-                    or exg < exg_min_sam
-                    or brightness < 13.0
-                    or brightness > 185.0
+                allow_olive_dome_candidate = (
+                    haze_offset == 0.0
+                    and score >= 0.45
+                    and foliage_ratio >= min_fol_ratio
+                    and g_m >= r_m - 8.0
+                    and g_m >= b_m + 6.0
+                    and exg >= 2.0
+                    and 22.0 <= brightness <= 175.0
+                )
+                if (
+                    not allow_trimmed_foliage_gate
+                    and not allow_olive_dome_candidate
+                    and (
+                        foliage_ratio < min_fol_ratio
+                        or g_m <= r_m
+                        or not vari_ok
+                        or gli < gli_min_sam
+                        or exg < exg_min_sam
+                        or brightness < 13.0
+                        or brightness > 185.0
+                    )
                 ):
                     continue
 
@@ -1554,6 +1656,9 @@ def run_sam3_tiled(
                     )
                     sub_fol = tile_foliage[ry : ry + rh, rx : rx + rw]
                     sub_bin = cv2.bitwise_and(local_raw_mask, sub_fol)
+                    raw_unfilled_bin = cv2.bitwise_and(
+                        sub_bin, mask_u8[ry : ry + rh, rx : rx + rw]
+                    )
                     sub_bin_px = int(cv2.countNonZero(sub_bin))
                     filled_px = max(1, int(cv2.countNonZero(local_raw_mask)))
                     if sub_bin_px < min_area_px:
@@ -1590,10 +1695,64 @@ def run_sam3_tiled(
                     c_exg_min = (
                         2.5 if (haze_offset > 0.0 and score >= 0.65) else 7.0
                     )
+                    olive_woody_dome_ok = False
                     if (
-                        c_g <= c_r
-                        or c_exg < c_exg_min
-                        or c_gli < gli_min_sam
+                        haze_offset == 0.0
+                        and score >= 0.45
+                        and (
+                            c_g <= c_r
+                            or c_exg < c_exg_min
+                            or c_gli < gli_min_sam
+                        )
+                        and c_g >= c_r - 8.0
+                        and c_g >= c_b + 6.0
+                        and c_exg >= 2.0
+                    ):
+                        crop_ol = tile[ry : ry + rh, rx : rx + rw]
+                        raw_ol_b = local_raw_mask > 0
+                        if int(np.count_nonzero(raw_ol_b)) >= 20:
+                            lab_ol = cv2.cvtColor(
+                                crop_ol, cv2.COLOR_RGB2LAB
+                            )[:, :, 0].astype(np.float32)
+                            gray_ol = cv2.cvtColor(
+                                crop_ol, cv2.COLOR_RGB2GRAY
+                            ).astype(np.float32)
+                            l_std_ol = float(lab_ol[raw_ol_b].std())
+                            lap_ol = float(
+                                np.abs(cv2.Laplacian(gray_ol, cv2.CV_32F))[
+                                    raw_ol_b
+                                ].mean()
+                            )
+                            dt_ol = cv2.distanceTransform(
+                                raw_ol_b.astype(np.uint8), cv2.DIST_L2, 5
+                            )
+                            d_ol_med = float(np.median(dt_ol[raw_ol_b]))
+                            in_ol = raw_ol_b & (dt_ol > d_ol_med)
+                            if int(np.count_nonzero(in_ol)) < 4:
+                                in_ol = raw_ol_b & (dt_ol >= d_ol_med)
+                            out_ol = raw_ol_b & (~in_ol)
+                            dome_ol = (
+                                float(
+                                    lab_ol[in_ol].mean()
+                                    - lab_ol[out_ol].mean()
+                                )
+                                if (np.any(in_ol) and np.any(out_ol))
+                                else 0.0
+                            )
+                            olive_woody_dome_ok = (
+                                l_std_ol >= 11.0
+                                and lap_ol >= 12.0
+                                and dome_ol >= 1.5
+                            )
+                    if (
+                        (
+                            not olive_woody_dome_ok
+                            and (
+                                c_g <= c_r
+                                or c_exg < c_exg_min
+                                or c_gli < gli_min_sam
+                            )
+                        )
                         or bg_exceed
                         or (
                             c_r < r_dark_sam
@@ -1660,11 +1819,67 @@ def run_sam3_tiled(
                     border_touch_px = max(
                         top_touch, bot_touch, left_touch, right_touch
                     )
+                    min_corner_seam_px = max(
+                        6, min(12, max_border_touch_px // 3)
+                    )
+                    n_inner_seam_edges = (
+                        int(top_touch >= min_corner_seam_px)
+                        + int(bot_touch >= min_corner_seam_px)
+                        + int(left_touch >= min_corner_seam_px)
+                        + int(right_touch >= min_corner_seam_px)
+                    )
 
                     is_multi_crown_cluster = (
                         mask_px > single_crown_max_px
                         or raw_area > single_crown_max_px
                     )
+                    if (
+                        is_multi_crown_cluster
+                        and gsd_m < 0.22
+                        and score >= 0.68
+                        and raw_area <= emergent_crown_max_px
+                        and mask_px <= int(emergent_crown_max_px * 1.15)
+                    ):
+                        emerg_hull_a = max(
+                            1.0, float(cv2.contourArea(cv2.convexHull(raw_cnt)))
+                        )
+                        emerg_perim = float(cv2.arcLength(raw_cnt, True))
+                        emerg_circ = (
+                            (4.0 * np.pi * raw_area) / (emerg_perim ** 2)
+                            if emerg_perim > 1e-6
+                            else 0.0
+                        )
+                        if (raw_area / emerg_hull_a) >= 0.74 and emerg_circ >= 0.28:
+                            lab_em = cv2.cvtColor(
+                                tile[ry : ry + rh, rx : rx + rw],
+                                cv2.COLOR_RGB2LAB,
+                            )[:, :, 0].astype(np.float32)
+                            raw_b = local_raw_mask > 0
+                            l_p12_em = (
+                                float(np.percentile(lab_em[raw_b], 12))
+                                if np.any(raw_b)
+                                else 20.0
+                            )
+                            crev_em = cv2.dilate(
+                                (lab_em < max(20.0, l_p12_em * 0.92)).astype(
+                                    np.uint8
+                                ),
+                                cv2.getStructuringElement(
+                                    cv2.MORPH_ELLIPSE, (3, 3)
+                                ),
+                            )
+                            split_em = raw_b & (crev_em == 0)
+                            n_em, _, st_em, _ = cv2.connectedComponentsWithStats(
+                                split_em.astype(np.uint8), connectivity=4
+                            )
+                            major_em = sum(
+                                1
+                                for k_em in range(1, n_em)
+                                if int(st_em[k_em, cv2.CC_STAT_AREA])
+                                >= int(0.20 * filled_px)
+                            )
+                            if major_em < 2:
+                                is_multi_crown_cluster = False
                     if (
                         is_multi_crown_cluster
                         and gsd_m >= 0.22
@@ -1740,13 +1955,18 @@ def run_sam3_tiled(
                                     keep_woody_strip = True
                             if not keep_woody_strip:
                                 continue
+                        cluster_sup_bin = (
+                            raw_unfilled_bin
+                            if int(cv2.countNonZero(raw_unfilled_bin)) >= min_area_px
+                            else sub_bin
+                        )
                         global_cluster_masks.append(
                             (
                                 x0 + rx,
                                 y0 + ry,
                                 x0 + rx + rw,
                                 y0 + ry + rh,
-                                sub_bin,
+                                cluster_sup_bin,
                             )
                         )
                         continue
@@ -1798,7 +2018,50 @@ def run_sam3_tiled(
                         ):
                             continue
 
-                    if border_touch_px >= max_border_touch_px:
+                    # CF2 All-Score Cast-Umbra + Non-Convex Dome Veto (no score >= 0.50 bypass)
+                    if haze_offset == 0.0 and c_exg < 24.0:
+                        lab_u_crop = cv2.cvtColor(
+                            tile[ry : ry + rh, rx : rx + rw],
+                            cv2.COLOR_RGB2LAB,
+                        )[:, :, 0].astype(np.float32)
+                        raw_u_b = local_raw_mask > 0
+                        if int(np.count_nonzero(raw_u_b)) >= 16:
+                            l_u_vals = lab_u_crop[raw_u_b]
+                            l_u_m = float(l_u_vals.mean())
+                            l_u_std = float(l_u_vals.std())
+                            if l_u_m < max(48.0, scene_gray_p1 * 1.15) and l_u_std < 9.5:
+                                gray_u = cv2.cvtColor(
+                                    tile[ry : ry + rh, rx : rx + rw],
+                                    cv2.COLOR_RGB2GRAY,
+                                ).astype(np.float32)
+                                lap_u_m = float(
+                                    np.abs(cv2.Laplacian(gray_u, cv2.CV_32F))[
+                                        raw_u_b
+                                    ].mean()
+                                )
+                                dt_u = cv2.distanceTransform(
+                                    raw_u_b.astype(np.uint8), cv2.DIST_L2, 5
+                                )
+                                d_u_med = float(np.median(dt_u[raw_u_b]))
+                                in_u = raw_u_b & (dt_u > d_u_med)
+                                if int(np.count_nonzero(in_u)) < 4:
+                                    in_u = raw_u_b & (dt_u >= d_u_med)
+                                out_u = raw_u_b & (~in_u)
+                                dome_u = (
+                                    float(
+                                        lab_u_crop[in_u].mean()
+                                        - lab_u_crop[out_u].mean()
+                                    )
+                                    if (np.any(in_u) and np.any(out_u))
+                                    else 0.0
+                                )
+                                if lap_u_m < 8.5 and dome_u <= 0.0:
+                                    continue
+
+                    if (
+                        border_touch_px >= max_border_touch_px
+                        or n_inner_seam_edges >= 2
+                    ):
                         continue
 
                     sub_cnts, _ = cv2.findContours(
@@ -2255,6 +2518,199 @@ def run_sam3_tiled(
     }
 
 
+class CrownBoxPrompter:
+    """
+    Pluggable tree-crown bounding-box proposal seam (Zero-DF / DeepForest / Custom Detector).
+    Normalizes any box detector (`predict_boxes`, `predict_tile`, or callable) to SI pixel coordinates.
+    """
+
+    def __init__(self, backend=None, score_floor: float = 0.20):
+        self.backend = backend
+        self.score_floor = float(score_floor)
+
+    def predict_boxes(
+        self,
+        image_rgb: np.ndarray,
+        gsd_m: float = 0.10,
+        patch_size: int = 600,
+    ) -> list[tuple[float, float, float, float, float]]:
+        if self.backend is None:
+            return []
+        height, width = image_rgb.shape[:2]
+        scale = 1.0
+        work_rgb = image_rgb
+        if 0.004 <= gsd_m < 0.045 and min(height, width) >= 512:
+            scale = max(0.10, min(1.0, gsd_m / 0.10))
+            nh = max(64, int(round(height * scale)))
+            nw = max(64, int(round(width * scale)))
+            if nh < height and nw < width:
+                work_rgb = cv2.resize(
+                    image_rgb, (nw, nh), interpolation=cv2.INTER_AREA
+                )
+            else:
+                scale = 1.0
+
+        if hasattr(self.backend, "predict_boxes"):
+            preds = self.backend.predict_boxes(work_rgb, gsd_m=gsd_m / scale)
+        elif hasattr(self.backend, "predict_tile"):
+            eff_patch = min(patch_size, max(160, min(work_rgb.shape[:2])))
+            preds = self.backend.predict_tile(
+                image=work_rgb,
+                patch_size=eff_patch,
+                patch_overlap=0.25,
+                iou_threshold=0.18,
+            )
+        elif callable(self.backend):
+            preds = self.backend(work_rgb)
+        else:
+            return []
+
+        inv_s = 1.0 / scale
+        rows: list[tuple[float, float, float, float, float]] = []
+        if preds is None:
+            return rows
+        if hasattr(preds, "columns") and hasattr(preds, "__len__"):
+            if len(preds) > 0:
+                for row in preds[
+                    ["xmin", "ymin", "xmax", "ymax", "score"]
+                ].to_numpy():
+                    sc = float(row[4])
+                    if sc >= self.score_floor:
+                        rows.append(
+                            (
+                                float(row[0]) * inv_s,
+                                float(row[1]) * inv_s,
+                                float(row[2]) * inv_s,
+                                float(row[3]) * inv_s,
+                                sc,
+                            )
+                        )
+        elif isinstance(preds, (list, tuple)):
+            for item in preds:
+                if isinstance(item, dict):
+                    sc = float(item.get("score", 0.5))
+                    if sc >= self.score_floor:
+                        rows.append(
+                            (
+                                float(item["xmin"]) * inv_s,
+                                float(item["ymin"]) * inv_s,
+                                float(item["xmax"]) * inv_s,
+                                float(item["ymax"]) * inv_s,
+                                sc,
+                            )
+                        )
+                else:
+                    sc = float(item[4])
+                    if sc >= self.score_floor:
+                        rows.append(
+                            (
+                                float(item[0]) * inv_s,
+                                float(item[1]) * inv_s,
+                                float(item[2]) * inv_s,
+                                float(item[3]) * inv_s,
+                                sc,
+                            )
+                        )
+        return rows
+
+    @staticmethod
+    def decode_sam3_tracker_masks(
+        image_rgb: np.ndarray,
+        boxes: list[tuple[float, float, float, float, float]],
+        tracker_processor,
+        tracker_model,
+        chunk_size: int = 32,
+        sam_iou_floor: float = 0.80,
+    ) -> list[tuple[tuple[int, int, int, int], np.ndarray, float, float]]:
+        """
+        Tier 1D Box-Guided SAM 3 Instance Mask Decoder (`Sam3TrackerModel`).
+        Decodes unclaimed tree-crown bounding boxes directly into crisp instance masks
+        using shared image embeddings and per-mask GPU bilinear upsampling.
+        """
+        if not boxes or tracker_processor is None or tracker_model is None:
+            return []
+        import torch
+        from PIL import Image
+
+        height, width = image_rgb.shape[:2]
+        pil_img = Image.fromarray(image_rgb)
+        device = next(tracker_model.parameters()).device
+        dtype = (
+            torch.bfloat16
+            if getattr(device, "type", "") == "cuda"
+            else torch.float32
+        )
+
+        with torch.inference_mode():
+            base_inputs = tracker_processor(
+                images=pil_img, return_tensors="pt"
+            ).to(device)
+            if dtype == torch.bfloat16:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    img_embeds = tracker_model.get_image_embeddings(
+                        base_inputs["pixel_values"]
+                    )
+            else:
+                img_embeds = tracker_model.get_image_embeddings(
+                    base_inputs["pixel_values"]
+                )
+
+            decoded: list[
+                tuple[tuple[int, int, int, int], np.ndarray, float, float]
+            ] = []
+            for st in range(0, len(boxes), chunk_size):
+                sub = boxes[st : st + chunk_size]
+                b_list = [[[float(b[0]), float(b[1]), float(b[2]), float(b[3])] for b in sub]]
+                box_inputs = tracker_processor(
+                    images=pil_img, input_boxes=b_list, return_tensors="pt"
+                )
+                input_boxes_dev = box_inputs["input_boxes"].to(device)
+                if dtype == torch.bfloat16:
+                    with torch.autocast("cuda", dtype=torch.bfloat16):
+                        out = tracker_model(
+                            image_embeddings=img_embeds,
+                            input_boxes=input_boxes_dev,
+                            multimask_output=True,
+                        )
+                else:
+                    out = tracker_model(
+                        image_embeddings=img_embeds,
+                        input_boxes=input_boxes_dev,
+                        multimask_output=True,
+                    )
+
+                ious = out.iou_scores.float().cpu().numpy()[0]
+                pm = out.pred_masks[0]
+                for idx_b, b_row in enumerate(sub):
+                    dsc = float(b_row[4])
+                    best_k = int(np.argmax(ious[idx_b]))
+                    sam_iou = float(ious[idx_b, best_k])
+                    if sam_iou < sam_iou_floor:
+                        continue
+                    logit_2d = pm[idx_b, best_k]
+                    if not bool((logit_2d > 0.0).any().item()):
+                        continue
+                    up_full = (
+                        torch.nn.functional.interpolate(
+                            logit_2d[None, None].float(),
+                            size=(height, width),
+                            mode="bilinear",
+                            align_corners=False,
+                        )[0, 0]
+                        > 0.0
+                    )
+                    nz = torch.nonzero(up_full, as_tuple=False)
+                    if nz.numel() == 0:
+                        continue
+                    y0 = int(nz[:, 0].min().item())
+                    y1 = int(nz[:, 0].max().item()) + 1
+                    x0 = int(nz[:, 1].min().item())
+                    x1 = int(nz[:, 1].max().item()) + 1
+                    crop = up_full[y0:y1, x0:x1].cpu().numpy()
+                    decoded.append(((y0, y1, x0, x1), crop, dsc, sam_iou))
+        return decoded
+
+
 def run_deepforest_crowns(
     image_rgb: np.ndarray,
     df_model,
@@ -2267,7 +2723,7 @@ def run_deepforest_crowns(
     woody_relief_mask: Optional[np.ndarray] = None,
     sam_union: Optional[np.ndarray] = None,
 ) -> tuple[list[dict], np.ndarray, dict]:
-    """Run Weecology DeepForest 2.1.0 nadir tree crown detector and verify foliage."""
+    """Run Weecology DeepForest 2.1.0 (or pluggable CrownBoxPrompter) and verify foliage."""
     height, width = image_rgb.shape[:2]
     df_support_mask = np.zeros((height, width), dtype=np.uint8)
     if df_model is None:
@@ -2297,48 +2753,19 @@ def run_deepforest_crowns(
     ai_rgb = enhance_shadow_luminance_cielab(
         image_rgb, scene_gray_p1=scene_gray_p1
     )
+    prompter = (
+        df_model
+        if isinstance(df_model, CrownBoxPrompter)
+        else CrownBoxPrompter(df_model, score_floor=0.0)
+    )
     try:
-        preds = df_model.predict_tile(
-            image=ai_rgb,
-            patch_size=df_patch_size,
-            patch_overlap=0.25,
-            iou_threshold=0.18,
+        raw_rows = prompter.predict_boxes(
+            ai_rgb, gsd_m=gsd_m, patch_size=df_patch_size
         )
     except Exception as error:
         if progress:
             progress(f"DeepForest predict_tile failed: {error}")
         return [], df_support_mask, {"df_boxes": 0, "df_verified": 0}
-
-    raw_rows: list[tuple[float, float, float, float, float]] = []
-    if preds is not None:
-        if hasattr(preds, "columns") and hasattr(preds, "__len__"):
-            if len(preds) > 0:
-                for row in preds[
-                    ["xmin", "ymin", "xmax", "ymax", "score"]
-                ].to_numpy():
-                    raw_rows.append(
-                        (
-                            float(row[0]),
-                            float(row[1]),
-                            float(row[2]),
-                            float(row[3]),
-                            float(row[4]),
-                        )
-                    )
-        elif isinstance(preds, (list, tuple)):
-            for item in preds:
-                if isinstance(item, dict):
-                    raw_rows.append(
-                        (
-                            float(item["xmin"]),
-                            float(item["ymin"]),
-                            float(item["xmax"]),
-                            float(item["ymax"]),
-                            float(item.get("score", 0.5)),
-                        )
-                    )
-                else:
-                    raw_rows.append(tuple(float(v) for v in item[:5]))
 
     verified: list[dict] = []
     for xmin, ymin, xmax, ymax, score in raw_rows:
@@ -2896,7 +3323,7 @@ def split_dense_canopy_watershed(
     surface = cv2.GaussianBlur(surface, (0, 0), sigma)
 
     dyn_win = max(9, min(45, int(round(2.5 / max(gsd_m, 0.03))))) | 1
-    dyn_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dyn_win, dyn_win))
+    dyn_k = cv2.getStructuringElement(cv2.MORPH_RECT, (dyn_win, dyn_win))
     gray_f = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
     local_dyn_l = cv2.dilate(gray_f, dyn_k) - cv2.erode(gray_f, dyn_k)
 

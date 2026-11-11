@@ -1369,6 +1369,20 @@ async def segment_canopy(
             "watershed_forest_crown",
             "watershed_dense_review",
         )
+        raw_user_max_m2 = (
+            float(max_area_m2) if max_area_m2 is not None else 2000.0
+        )
+        is_auto_or_default_max = (
+            abs(raw_user_max_m2 - 2000.0) <= 1.0
+            or abs(raw_user_max_m2 - 450.0) <= 1.0
+            or abs(raw_user_max_m2 - 260.0) <= 1.0
+            or abs(raw_user_max_m2 - 380.0) <= 1.0
+        )
+        effective_indiv_max_m2 = (
+            max(raw_user_max_m2, round(math.pi * (20.0 ** 2), 1))
+            if (is_individual and is_auto_or_default_max)
+            else (raw_user_max_m2 if is_individual else 1_000_000_000.0)
+        )
         process_contour_enhanced(
             contour=contour,
             tree_id=feature_id,
@@ -1382,7 +1396,7 @@ async def segment_canopy(
             geo_transformer=geo_transformer if is_georeferenced else None,
             geod=geod if is_georeferenced else None,
             min_area_m2=float(min_area_m2) if is_individual else 0.05,
-            max_area_m2=float(max_area_m2) if is_individual else 1_000_000_000.0,
+            max_area_m2=effective_indiv_max_m2,
             vari_threshold=0.0 if is_crown else -1.0,
             circularity_threshold=0.0,
             default_height_m=default_height_m,
@@ -1554,7 +1568,10 @@ async def segment_canopy(
         default_single_max_m2 = 380.0 if work_gsd >= 0.22 else 260.0
         user_max_m2 = float(max_area_m2) if max_area_m2 is not None else 2000.0
         is_default_max_m2 = (
-            abs(user_max_m2 - 2000.0) <= 1.0 or abs(user_max_m2 - 450.0) <= 1.0
+            abs(user_max_m2 - 2000.0) <= 1.0
+            or abs(user_max_m2 - 450.0) <= 1.0
+            or abs(user_max_m2 - default_single_max_m2) <= 1.0
+            or abs(user_max_m2 - (380.0 if gsd_m >= 0.22 else 260.0)) <= 1.0
         )
         single_crown_max_m2 = (
             default_single_max_m2
@@ -1581,6 +1598,7 @@ async def segment_canopy(
             gsd_m=work_gsd,
             strict_foliage=strict_foliage,
             woody_relief_mask=woody_relief,
+            allow_emergent_shield=is_default_max_m2,
         )
         if roi_mask_work is not None and instances:
             instances = [

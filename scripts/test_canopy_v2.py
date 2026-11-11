@@ -12,6 +12,7 @@ PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, os.path.join(PROJECT_DIR, "src"))
 
 from canopy_v2 import (  # noqa: E402
+    CrownBoxPrompter,
     DISTINCT_CROWN_PALETTE,
     assign_adjacent_distinct_colors,
     carve_non_overlapping_crowns,
@@ -745,6 +746,441 @@ closed_ws, _ = split_dense_canopy_watershed(
 )
 assert len(closed_ws) == 4, f"Expected 4 closed-canopy crowns via Shadow-Crevice Watershed, got {len(closed_ws)}"
 
+# Verify V1.8 Gate C(1): Post-carve crescent/sliver rind veto in carve_non_overlapping_crowns
+sliv_core = np.zeros((180, 180), dtype=np.uint8)
+sliv_halo = np.zeros((180, 180), dtype=np.uint8)
+sliv_neighbor = np.zeros((180, 180), dtype=np.uint8)
+cv2.circle(sliv_core, (70, 90), 34, 255, -1)
+# Secondary watershed candidate shifted by +8px overlaps ~82% of sliv_core (initial_occupied),
+# leaving only an 18% thin crescent rind (circ < 0.22) that must be pruned!
+cv2.circle(sliv_halo, (78, 90), 34, 255, -1)
+cnt_score_halo = cv2.findContours(sliv_halo, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0]
+cv2.circle(sliv_neighbor, (132, 90), 28, 255, -1)
+cnt_score_nb = cv2.findContours(sliv_neighbor, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0]
+
+v18_no_sliver, _ = carve_non_overlapping_crowns(
+    [{"contour": cnt_score_halo, "score": 0.58}],
+    height=180,
+    width=180,
+    iom_reject=0.50,
+    min_area_px=25,
+    initial_occupied=sliv_core,
+)
+assert len(v18_no_sliver) == 0, f"Expected carved thin crescent rind to be pruned, got {len(v18_no_sliver)}"
+
+v18_with_nb, _ = carve_non_overlapping_crowns(
+    [
+        {"contour": cnt_score_halo, "score": 0.58},
+        {"contour": cnt_score_nb, "score": 0.84},
+    ],
+    height=180,
+    width=180,
+    iom_reject=0.50,
+    min_area_px=25,
+    initial_occupied=sliv_core,
+)
+assert len(v18_with_nb) == 1, f"Expected genuine neighbor crown kept (sensitivity check), got {len(v18_with_nb)}"
+
+# Verify V1.8 Gate C(2): Sub-window >= 2 inner-seam 90-deg corner-clip veto in run_sam3_tiled
+corner_scene = np.full((260, 260, 3), [32, 118, 38], dtype=np.uint8)
+rng_c18 = np.random.default_rng(18)
+corner_scene = np.clip(
+    corner_scene.astype(np.int16) + rng_c18.integers(-22, 23, size=corner_scene.shape, dtype=np.int16),
+    8,
+    245,
+).astype(np.uint8)
+
+
+class _CornerClipSam(_DummySam):
+    def __init__(self, corner_clip: bool):
+        super().__init__()
+        self.corner_clip = corner_clip
+
+    def generate_masks(self, prompt: str, min_size: int = 80, quiet: bool = True):
+        self.calls += 1
+        h, w = self._tile_shape
+        if prompt == "car":
+            self.masks = []
+            self.scores = []
+            return
+        m = np.zeros((h, w), dtype=np.uint8)
+        if self.corner_clip:
+            # Flush against top-left interior tile corner (touching 2 inner seams < max_border_touch_px)
+            m[0:10, 0:10] = 1
+            cv2.circle(m, (11, 11), 10, 1, -1)
+        else:
+            cv2.circle(m, (w // 2, h // 2), 18, 1, -1)
+        self.masks = [m]
+        self.scores = [0.82]
+
+
+corner_clipped_inst, _, _ = run_sam3_tiled(
+    corner_scene,
+    _CornerClipSam(corner_clip=True),
+    prompt="tree",
+    tile_size=160,
+    overlap=60,
+    confidence=0.25,
+    min_area_px=30,
+    max_area_px=20000,
+    gsd_m=0.05,
+    enable_car_prompt=False,
+)
+# Only outer-frame (0,0) tile has y0==0 or x0==0; interior bottom-right tile (x0=100,y0=100) has 2 inner seams!
+assert all(
+    not (98 <= cv2.boundingRect(it["contour"])[0] <= 103 and 98 <= cv2.boundingRect(it["contour"])[1] <= 103)
+    for it in corner_clipped_inst
+), "90-degree 2-inner-seam corner clip at (100,100) must be vetoed!"
+
+center_whole_inst, _, _ = run_sam3_tiled(
+    corner_scene,
+    _CornerClipSam(corner_clip=False),
+    prompt="tree",
+    tile_size=160,
+    overlap=60,
+    confidence=0.25,
+    min_area_px=30,
+    max_area_px=20000,
+    gsd_m=0.05,
+    enable_car_prompt=False,
+)
+assert len(center_whole_inst) >= 2
+
+# Verify V1.8 Gate B: Frame-invariant SI Emergent Allometry (intact 28m crown preserved under 45% black nodata,
+# while crevice-bisected super-clump is still routed to watershed!)
+emerg_h, emerg_w = 1500, 1500
+emerg_img = np.full((emerg_h, emerg_w, 3), [34, 116, 40], dtype=np.uint8)
+yy_em, xx_em = np.ogrid[0:emerg_h, 0:emerg_w]
+rad_em = 270.0  # pi * 270^2 = ~229,022 px (> 128,395 px legacy 260 m^2 cap at gsd_m=0.045, ~24.3 m diameter)
+dist_em = np.hypot(xx_em - 450.0, yy_em - 450.0)
+dome_em = np.clip(1.0 - (dist_em / rad_em) ** 1.8, 0.0, 1.0)
+emerg_img[:, :, 1] = np.clip(72.0 + 95.0 * dome_em, 28, 195).astype(np.uint8)
+emerg_img[:, :, 0] = np.clip(28.0 + 44.0 * dome_em, 12, 95).astype(np.uint8)
+emerg_img[:, :, 2] = np.clip(24.0 + 34.0 * dome_em, 10, 82).astype(np.uint8)
+
+
+class _EmergentSam(_DummySam):
+    def generate_masks(self, prompt: str, min_size: int = 80, quiet: bool = True):
+        h, w = self._tile_shape
+        if prompt == "car":
+            self.masks = []
+            self.scores = []
+            return
+        yy_s, xx_s = np.ogrid[0:h, 0:w]
+        m = (((xx_s - 450) ** 2 + (yy_s - 450) ** 2) <= (270 ** 2)).astype(np.uint8)
+        self.masks = [m]
+        self.scores = [0.88]
+
+
+em_clean_inst, _, _ = run_sam3_tiled(
+    emerg_img,
+    _EmergentSam(),
+    prompt="tree",
+    tile_size=1500,
+    overlap=128,
+    confidence=0.25,
+    min_area_px=80,
+    max_area_px=160000,
+    gsd_m=0.045,
+    enable_car_prompt=False,
+)
+assert len(em_clean_inst) == 1, f"Expected intact 24.3m emergent crown kept whole, got {len(em_clean_inst)}"
+
+emerg_nodata_img = emerg_img.copy()
+emerg_nodata_img[820:, :] = 0  # 45.3% black GeoTIFF nodata border
+em_nodata_inst, _, _ = run_sam3_tiled(
+    emerg_nodata_img,
+    _EmergentSam(),
+    prompt="tree",
+    tile_size=1500,
+    overlap=128,
+    confidence=0.25,
+    min_area_px=80,
+    max_area_px=160000,
+    gsd_m=0.045,
+    enable_car_prompt=False,
+)
+assert len(em_nodata_inst) == 1, "Emergent crown allowance must be invariant to 45% black nodata padding"
+
+emerg_bisected_img = emerg_img.copy()
+emerg_bisected_img[170:730, 444:456] = [4, 8, 4]  # Deep shadow crevice bisecting into 2 major lobes
+em_bisected_inst, _, _ = run_sam3_tiled(
+    emerg_bisected_img,
+    _EmergentSam(),
+    prompt="tree",
+    tile_size=1500,
+    overlap=128,
+    confidence=0.25,
+    min_area_px=80,
+    max_area_px=160000,
+    gsd_m=0.045,
+    enable_car_prompt=False,
+)
+assert len(em_bisected_inst) == 0, "Crevice-bisected super-clump must be routed to watershed splitting"
+
+# Verify V1.8 Stage-2 Seam: CrownBoxPrompter SI-normalized 0.10 m/px UAV scaling & coordinate round-trip
+uav_seen_shapes = []
+
+
+def _custom_box_detector(work_rgb: np.ndarray):
+    uav_seen_shapes.append(work_rgb.shape[:2])
+    h_w, w_w = work_rgb.shape[:2]
+    return [{"xmin": w_w * 0.25, "ymin": h_w * 0.25, "xmax": w_w * 0.50, "ymax": h_w * 0.50, "score": 0.77}]
+
+
+prompter_uav = CrownBoxPrompter(_custom_box_detector, score_floor=0.30)
+uav_dummy = np.zeros((1000, 1000, 3), dtype=np.uint8)
+uav_boxes = prompter_uav.predict_boxes(uav_dummy, gsd_m=0.02)
+assert uav_seen_shapes == [(200, 200)], f"Expected 0.02m -> 0.10m 5x downscale (200,200), got {uav_seen_shapes}"
+assert len(uav_boxes) == 1 and abs(uav_boxes[0][0] - 250.0) < 1e-3 and abs(uav_boxes[0][2] - 500.0) < 1e-3
+
+# Verify V1.8 Gate A (CF2):
+#   (1) High-score (score=0.88) flat concave cast-shadow umbra blob on shaded grass is vetoed (no score>=0.50 bypass),
+#       whereas a shaded 3D convex tree dome (score=0.88) with positive radial dome gradient & micro-relief is kept!
+#   (2) Multi-crown donut super-clump preserves its internal grassy clearing hole in union_mask rather than plugging it!
+cf2_h, cf2_w = 240, 240
+# Background with realistic sunlit grass + dark corner so scene_gray_p1 == 0 (haze_offset == 0.0)
+cf2_base = np.full((cf2_h, cf2_w, 3), [74, 126, 62], dtype=np.uint8)
+cf2_base[0:24, 0:24] = [2, 3, 2]
+rng_cf2 = np.random.default_rng(42)
+cf2_base[24:, :] = np.clip(
+    cf2_base[24:, :].astype(np.int16) + rng_cf2.integers(-14, 15, size=cf2_base[24:, :].shape, dtype=np.int16),
+    4,
+    245,
+).astype(np.uint8)
+
+# Case A1: Flat/concave dark cast-shadow umbra on grass (darker at core, smooth texture, mild ExG < 24)
+cf2_umbra_img = cf2_base.copy()
+yy_u, xx_u = np.ogrid[0:cf2_h, 0:cf2_w]
+dist_u = np.hypot(xx_u - 120.0, yy_u - 120.0)
+in_umbra = dist_u <= 34.0
+rad_frac_u = np.clip(dist_u / 34.0, 0.0, 1.0)
+# Concave shadow profile: core darker (L ~ 22) than penumbra rim (L ~ 34) -> dome_u < 0, lap_u_m < 8.5
+cf2_umbra_img[:, :, 0][in_umbra] = np.round(14.0 + 10.0 * rad_frac_u[in_umbra]).astype(np.uint8)
+cf2_umbra_img[:, :, 1][in_umbra] = np.round(24.0 + 12.0 * rad_frac_u[in_umbra]).astype(np.uint8)
+cf2_umbra_img[:, :, 2][in_umbra] = np.round(16.0 + 10.0 * rad_frac_u[in_umbra]).astype(np.uint8)
+
+# Case A2: Shaded 3D convex tree crown dome (brighter apex + crisp leaf micro-relief -> dome_u > 0, lap_u_m > 8.5)
+cf2_dome_img = cf2_base.copy()
+dome_prof = np.clip(1.0 - (dist_u / 34.0) ** 1.5, 0.0, 1.0)
+leaf_tex = rng_cf2.integers(-16, 17, size=(cf2_h, cf2_w), dtype=np.int16)
+cf2_dome_img[:, :, 0][in_umbra] = np.clip(16.0 + 26.0 * dome_prof[in_umbra] + leaf_tex[in_umbra], 6, 90).astype(np.uint8)
+cf2_dome_img[:, :, 1][in_umbra] = np.clip(28.0 + 44.0 * dome_prof[in_umbra] + leaf_tex[in_umbra], 10, 130).astype(np.uint8)
+cf2_dome_img[:, :, 2][in_umbra] = np.clip(15.0 + 20.0 * dome_prof[in_umbra] + leaf_tex[in_umbra], 6, 80).astype(np.uint8)
+
+
+class _CastUmbraSam(_DummySam):
+    def generate_masks(self, prompt: str, min_size: int = 80, quiet: bool = True):
+        h, w = self._tile_shape
+        if prompt == "car":
+            self.masks = []
+            self.scores = []
+            return
+        yy_s, xx_s = np.ogrid[0:h, 0:w]
+        m = (((xx_s - 120) ** 2 + (yy_s - 120) ** 2) <= (34 ** 2)).astype(np.uint8)
+        self.masks = [m]
+        self.scores = [0.88]  # High score that bypassed legacy score < 0.50 gates!
+
+
+cf2_umbra_inst, _, _ = run_sam3_tiled(
+    cf2_umbra_img,
+    _CastUmbraSam(),
+    prompt="tree",
+    tile_size=240,
+    overlap=32,
+    confidence=0.25,
+    min_area_px=60,
+    max_area_px=20000,
+    gsd_m=0.10,
+    enable_car_prompt=False,
+)
+assert len(cf2_umbra_inst) == 0, f"CF2 must veto high-score flat/concave cast-shadow umbra, got {len(cf2_umbra_inst)}"
+
+cf2_dome_inst, _, _ = run_sam3_tiled(
+    cf2_dome_img,
+    _CastUmbraSam(),
+    prompt="tree",
+    tile_size=240,
+    overlap=32,
+    confidence=0.25,
+    min_area_px=60,
+    max_area_px=20000,
+    gsd_m=0.10,
+    enable_car_prompt=False,
+)
+assert len(cf2_dome_inst) == 1, f"CF2 must preserve genuine 3D convex shaded crown dome, got {len(cf2_dome_inst)}"
+
+# Case A3: Multi-crown donut super-clump (> max_area_px & > emergent cap via bisecting crevice) preserves internal hole!
+donut_img = cf2_base.copy()
+in_ring = (dist_u <= 88.0) & (dist_u >= 32.0)
+ring_tex = rng_cf2.integers(-22, 23, size=(cf2_h, cf2_w), dtype=np.int16)
+donut_img[:, :, 0][in_ring] = np.clip(38 + ring_tex[in_ring], 10, 120).astype(np.uint8)
+donut_img[:, :, 1][in_ring] = np.clip(118 + ring_tex[in_ring], 45, 210).astype(np.uint8)
+donut_img[:, :, 2][in_ring] = np.clip(36 + ring_tex[in_ring], 10, 110).astype(np.uint8)
+donut_img[25:215, 117:123] = [4, 7, 4]  # Bisecting crevice so super-clump routes to global_cluster_masks
+
+
+class _DonutSuperClumpSam(_DummySam):
+    def generate_masks(self, prompt: str, min_size: int = 80, quiet: bool = True):
+        h, w = self._tile_shape
+        if prompt == "car":
+            self.masks = []
+            self.scores = []
+            return
+        yy_s, xx_s = np.ogrid[0:h, 0:w]
+        d2 = (xx_s - 120) ** 2 + (yy_s - 120) ** 2
+        m = ((d2 <= (88 ** 2)) & (d2 >= (32 ** 2))).astype(np.uint8)
+        self.masks = [m]
+        self.scores = [0.86]
+
+
+donut_inst, donut_union, _ = run_sam3_tiled(
+    donut_img,
+    _DonutSuperClumpSam(),
+    prompt="tree",
+    tile_size=240,
+    overlap=32,
+    confidence=0.25,
+    min_area_px=60,
+    max_area_px=4000,  # Ring area ~21,112 px > max_area_px -> super-clump path!
+    gsd_m=0.10,
+    enable_car_prompt=False,
+)
+assert int(cv2.countNonZero(donut_union)) > 12000, "Donut super-clump ring should populate union_mask"
+assert int(donut_union[120, 120]) == 0, "CF2 must preserve internal grassy clearing hole (never plug via RETR_EXTERNAL)!"
+
+# Verify V1.8 Seam Audit Gates (Blind Critic Gate 3B):
+#   (3.1a) main.py seam: max_area_px=26000 at gsd_m=0.10 on 1000x1000 still activates CF3-Scoped for intact 28m crown!
+seam_1k = np.full((1000, 1000, 3), [34, 116, 40], dtype=np.uint8)
+yy_1k, xx_1k = np.ogrid[0:1000, 0:1000]
+rad_28m = 140.0  # 28m diameter @ 0.10 m/px -> ~61,575 px (> 26,000 px single cap, <= 125,664 px SI 20m emergent cap)
+d_1k = np.hypot(xx_1k - 500.0, yy_1k - 500.0)
+dome_1k = np.clip(1.0 - (d_1k / rad_28m) ** 1.8, 0.0, 1.0)
+seam_1k[:, :, 1] = np.clip(72.0 + 95.0 * dome_1k, 28, 195).astype(np.uint8)
+seam_1k[:, :, 0] = np.clip(28.0 + 44.0 * dome_1k, 12, 95).astype(np.uint8)
+seam_1k[:, :, 2] = np.clip(24.0 + 34.0 * dome_1k, 10, 82).astype(np.uint8)
+
+
+class _Seam28mSam(_DummySam):
+    def generate_masks(self, prompt: str, min_size: int = 80, quiet: bool = True):
+        h, w = self._tile_shape
+        if prompt == "car":
+            self.masks, self.scores = [], []
+            return
+        yy_s, xx_s = np.ogrid[0:h, 0:w]
+        self.masks = [(((xx_s - 500) ** 2 + (yy_s - 500) ** 2) <= (140 ** 2)).astype(np.uint8)]
+        self.scores = [0.88]
+
+
+seam_28m_inst, _, _ = run_sam3_tiled(
+    seam_1k,
+    _Seam28mSam(),
+    prompt="tree",
+    tile_size=1000,
+    overlap=128,
+    confidence=0.25,
+    min_area_px=80,
+    max_area_px=26000,  # Exact max_instance_px passed by main.py at work_gsd=0.10!
+    gsd_m=0.10,
+    enable_car_prompt=False,
+)
+assert len(seam_28m_inst) == 1, f"main.py max_area_px=26000 seam must keep intact 28m emergent crown, got {len(seam_28m_inst)}"
+
+#   (3.1b) Small 400x400 frame at gsd_m=0.08 clamps single_crown_max_px to 0.095*H*W (15,200 px) even if max_area_px=40625!
+small_400 = np.full((400, 400, 3), [34, 116, 40], dtype=np.uint8)
+yy_400, xx_400 = np.ogrid[0:400, 0:400]
+d_400 = np.hypot(xx_400 - 200.0, yy_400 - 200.0)
+dome_400 = np.clip(1.0 - (d_400 / 80.0) ** 1.6, 0.0, 1.0)  # pi*80^2 ~ 20,106 px (> 15,200 px, < 40,625 px)
+small_400[:, :, 1] = np.clip(72.0 + 95.0 * dome_400, 28, 195).astype(np.uint8)
+small_400[:, :, 0] = np.clip(28.0 + 44.0 * dome_400, 12, 95).astype(np.uint8)
+small_400[:, :, 2] = np.clip(24.0 + 34.0 * dome_400, 10, 82).astype(np.uint8)
+small_400[115:285, 196:204] = [4, 7, 4]  # Deep shadow crevice bisecting into 2 major lobes
+
+
+class _Small400ClumpSam(_DummySam):
+    def generate_masks(self, prompt: str, min_size: int = 80, quiet: bool = True):
+        h, w = self._tile_shape
+        if prompt == "car":
+            self.masks, self.scores = [], []
+            return
+        yy_s, xx_s = np.ogrid[0:h, 0:w]
+        self.masks = [(((xx_s - 200) ** 2 + (yy_s - 200) ** 2) <= (80 ** 2)).astype(np.uint8)]
+        self.scores = [0.88]
+
+
+small_400_inst, _, _ = run_sam3_tiled(
+    small_400,
+    _Small400ClumpSam(),
+    prompt="tree",
+    tile_size=400,
+    overlap=64,
+    confidence=0.25,
+    min_area_px=60,
+    max_area_px=40625,  # 260 / 0.08^2 = 40,625 px -> must still clamp single_crown_max_px to 0.095*400*400 = 15,200 px!
+    gsd_m=0.08,
+    enable_car_prompt=False,
+)
+assert len(small_400_inst) == 0, "400x400 frame must clamp single_crown_max_px to 0.095*H*W and route bisected clump!"
+
+#   (3.2) Clear-sky dry-season sclerophyllous olive oak dome (G <= R, ExG ~ 5, strong 3D relief + convex dome) kept,
+#         while flat/textured grey concrete & red roof are strictly vetoed!
+olive_img = cf2_base.copy()
+olive_tex = rng_cf2.integers(-26, 27, size=(cf2_h, cf2_w), dtype=np.int16)
+olive_dome = np.clip(1.0 - (dist_u / 34.0) ** 1.4, 0.0, 1.0)
+# Olive oak: R slightly >= G (G - R ~ -2), strong carotenoid blue absorption (G - B ~ +12), ExG ~ +10, 3D dome + leaf relief
+olive_img[:, :, 0][in_umbra] = np.clip(68.0 + 38.0 * olive_dome[in_umbra] + olive_tex[in_umbra], 24, 165).astype(np.uint8)
+olive_img[:, :, 1][in_umbra] = np.clip(66.0 + 38.0 * olive_dome[in_umbra] + olive_tex[in_umbra], 24, 165).astype(np.uint8)
+olive_img[:, :, 2][in_umbra] = np.clip(52.0 + 28.0 * olive_dome[in_umbra] + olive_tex[in_umbra], 16, 145).astype(np.uint8)
+
+olive_inst, _, _ = run_sam3_tiled(
+    olive_img,
+    _CastUmbraSam(),
+    prompt="tree",
+    tile_size=240,
+    overlap=32,
+    confidence=0.25,
+    min_area_px=60,
+    max_area_px=20000,
+    gsd_m=0.10,
+    enable_car_prompt=False,
+)
+assert len(olive_inst) == 1, f"3D convex dry-season olive oak crown must be preserved on clear sky, got {len(olive_inst)}"
+
+concrete_img = cf2_base.copy()
+concrete_img[:, :, 0][in_umbra] = np.clip(112 + olive_tex[in_umbra], 70, 165).astype(np.uint8)
+concrete_img[:, :, 1][in_umbra] = np.clip(112 + olive_tex[in_umbra], 70, 165).astype(np.uint8)
+concrete_img[:, :, 2][in_umbra] = np.clip(110 + olive_tex[in_umbra], 70, 165).astype(np.uint8)
+concrete_inst, _, _ = run_sam3_tiled(
+    concrete_img,
+    _CastUmbraSam(),
+    prompt="tree",
+    tile_size=240,
+    overlap=32,
+    confidence=0.25,
+    min_area_px=60,
+    max_area_px=20000,
+    gsd_m=0.10,
+    enable_car_prompt=False,
+)
+assert len(concrete_inst) == 0, f"Grey textured gravel/concrete must stay vetoed, got {len(concrete_inst)}"
+
+#   (3.3) Multi-tier v1.8 sliver filter (0.35 <= keep_ratio < 0.68 thin crescent sliver is pruned!)
+tier2_occ = np.zeros((180, 180), dtype=np.uint8)
+tier2_cand = np.zeros((180, 180), dtype=np.uint8)
+cv2.circle(tier2_occ, (70, 90), 36, 255, -1)
+# Thin ring-like crescent overlapping ~45% of tier2_occ (keep_ratio ~ 0.52, circ < 0.25)
+cv2.ellipse(tier2_cand, (82, 90), (42, 42), 0, -85, 85, 255, 8)
+cnt_tier2 = cv2.findContours(tier2_cand, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0]
+v18_tier2_sliv, _ = carve_non_overlapping_crowns(
+    [{"contour": cnt_tier2, "score": 0.62}],
+    height=180,
+    width=180,
+    iom_reject=0.75,
+    min_area_px=25,
+    initial_occupied=tier2_occ,
+)
+assert len(v18_tier2_sliv) == 0, f"Expected multi-tier keep_ratio<0.68 thin crescent sliver pruned, got {len(v18_tier2_sliv)}"
+
 print(
     {
         "tiles": len(windows),
@@ -763,5 +1199,6 @@ print(
         "nk_v2_8_9_audit_verified": nk_audit_verified,
         "v1_6_voronoi_euler1_verified": True,
         "v1_6_closed_canopy_ws_crowns": len(closed_ws),
+        "v1_8_cf2_cf3_cf4_boxprompter_verified": True,
     }
 )

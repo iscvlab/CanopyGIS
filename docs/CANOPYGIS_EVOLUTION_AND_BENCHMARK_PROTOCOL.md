@@ -1,6 +1,6 @@
 # CanopyGIS Unified Architecture, Anti-Cheat Evolution & Multi-Biome Benchmark Protocol (`Playbook 6 — Tier 2E`)
 
-> **Scope**: Canonical **Single Source of Truth (`SSOT`)** for **CanopyGIS (`SAE-LIM` Sub-Engine `[D]`, `V1.0 / v1.6`)** and **Playbook 6 (`Tier 2E`)** in the **4-Tier [XBoost (`iscvlab/xboost` `v3.5.0`)](https://github.com/iscvlab/xboost) Compound Learning Bridge Cascade** (`Tier 2A = OSS`, `Tier 2B = PlantStudio`, `Tier 2C = Quant Trading`, `Tier 2D = Iscv.EnvSim`, `Tier 2E = CanopyGIS`). Unifies **(A) Production Bangkok VHR Urban/Peri-Urban Architecture (`Canopy V2.1 → V1.0 / v1.6`, `3` Sites, `6,559` Crowns, `23/23` Audited Regions)** and **(B) Global [`weecology/MillionTrees`](https://github.com/weecology/MillionTrees) `v0.25` `TreePolygons` Controlled Ablation, Forensic Honeycomb/Metric Audit, and Verified `v1.6` Stratified `60/20/20` (`20` Tiles, `1,007` GT Crowns) Multi-Biome Benchmark (`C-GATE-1..5` `100%` PASS)**.  
+> **Scope**: Canonical **Single Source of Truth (`SSOT`)** for **CanopyGIS (`SAE-LIM` Sub-Engine `[D]`, `V1.0 / v1.8`)** and **Playbook 6 (`Tier 2E`)** in the **4-Tier [XBoost (`iscvlab/xboost` `v3.5.0`)](https://github.com/iscvlab/xboost) Compound Learning Bridge Cascade** (`Tier 2A = OSS`, `Tier 2B = PlantStudio`, `Tier 2C = Quant Trading`, `Tier 2D = Iscv.EnvSim`, `Tier 2E = CanopyGIS`). Unifies **(A) Production Bangkok VHR Urban/Peri-Urban Architecture (`Canopy V2.1 → V1.0 / v1.8`, `3` Sites, `6,559` Crowns, `23/23` Audited Regions)** and **(B) Global [`weecology/MillionTrees`](https://github.com/weecology/MillionTrees) `v0.25` `TreePolygons` Controlled Ablation, Forensic Honeycomb/Metric Audit, `Dev-20` (`1,007` GT Crowns), and One-Shot Two-Part Blind Holdout (`Holdout_v18`: `12` Unseen OOD Tiles `507` Crowns + Official `59`-Tile Held-Out TLS Validation `3,661` Crowns → `#2 Overall / #1 Pure Zero-Shot` at `0.6201` Source-Macro `F1`, `Plain P = 0.5464`, `C-GATE-1..5` `100%` PASS)**.  
 > **Companion SSOTs**: [`COMPOUND_LEARNING_PLAYBOOK.md`](../../../COMPOUND_LEARNING_PLAYBOOK.md) (`Tier 1 Core Hub`) • [`archive/ARCHIVE_CANOPY_V2_WAVE_LOGS.md`](./archive/ARCHIVE_CANOPY_V2_WAVE_LOGS.md) (`Historical Waves 3–8 Diary`) • [`ISCV-Workspace/docs/OSS_CONTRIBUTION_AND_DEEP_SCAN_PROTOCOL.md`](../../../ISCV-Workspace/docs/OSS_CONTRIBUTION_AND_DEEP_SCAN_PROTOCOL.md) (`Playbook 2 — Tier 2A`) • [`ISCV-Workspace/docs/research/RESEARCH_WEECOLOGY_UF_COLLABORATION_STRATEGY.md`](../../../ISCV-Workspace/docs/research/RESEARCH_WEECOLOGY_UF_COLLABORATION_STRATEGY.md) • **2-Hop Obsidian Vault**: `[[SAM3 and DeepForest Canopy Segmentation Pipeline]]` & `[[Pkg - Canopy AI SAM3 and DeepForest Segmenter]]`.
 
 ---
@@ -255,19 +255,66 @@ In response to forensic inspection of user-spotted holdout failures (`Tretzendor
 
 ---
 
+### 5.7 Generation `v1.8` — Pure Zero-Shot `CF2` 3D Relief Shadow Veto, `CF3-Scoped` SI Emergent Shield & `CF4` Polsby-Popper Roundness (`Two-Part Blind Holdout_v18` & `C-GATE-1..5` Verified)
+
+Because `Holdout_4` (`SPA17`, `Tretzendorf_199`, `BART_026`, `Selva_BCI_1389`) was visually inspected during our `108`-run counterfactual diagnosis, `Holdout_4` was formally retired into **`Dev-20` (`20` Tiles, `1,007` Crowns)** under **`C-CHEAT-07`**, and **`63` brand-new unseen RGB tiles** were SHA-256 locked (`v18_holdout_manifest.json`) and cached (`0` GT/mask reads, `0` forestry-specific detector weights) into a **Two-Part Blind Holdout (`Holdout_v18`)** BEFORE running a single evaluation:
+- **Part 1A (`Holdout_OOD_12`)**: `12` strictly unseen multi-biome OOD test tiles (`2` per source across all `6` OOD sources: `Troles et al. 2024`, `Alejandro_Miranda`, `Lefebvre et al. 2024`, `NEON MultiTemporal`, `Bohlman et al. 2008` Panama BCI rainforest, `Takeshige et al. 2025`; `507` GT crowns).
+- **Part 1B (`Official Held-Out TLS Validation`)**: All `59 / 59` complete packaged `v0.25` TLS validation tiles (`24` `Allen et al. 2025` = `1,609` crowns + `35` `Frey et al. 2026` = `2,052` crowns → exact **`3,661` crowns**, comprising **`51` strictly unseen TLS tiles** + `8` `Dev-20` overlap tiles; note the `26` `complete == False` Frey TLS footprint-edge tiles in `upstream_tile_completeness.csv` were already pruned upstream [`HTTP 404`] in `v0.25`).
+
+#### 5.7.1 Locked `CanopyGIS v1.8` Physics & Geometry Laws (`F-11..13`, Zero Green-Only Masking, Zero Biome Switches)
+
+1. **`F-11` (`CF2`) — All-Score 3D Micro-Relief, Radial Dome Convexity & Unfilled Super-Clump Support**:
+   - *Defect Closed*: In `v1.6b`, `score >= 0.50` bypassed shadow/clearing vetoes, and `binary_fill_holes` plugged enclosed grassy clearings on weak whole-tile super-clumps (`Tretzendorf_199` `sc = 0.373`, `95.1% → 97.1%`) before routing into `canopy_support`. Naive green-only masking (`ExG > 8`) catastrophically wiped `100%` of Mediterranean olive oaks (`SPA32`) and bronze broadleafs (`HARV_crop29`, `-20.67 pts` `Train_12` Official `F1`).
+   - *Law*: Close the `score >= 0.50` shadow-veto bypass across all proposals (evaluating `L*`, `std_L`, `|∇²I|`, and radial dome convexity `L*_inner - L*_outer > 0`), pass raw unfilled `crop` (never hole-filled `clean_crop`) into `canopy_support` on super-clumps, and compute local dynamic range via separable `O(HW)` `cv2.MORPH_RECT` filters (`src/canopy_v2.py`).
+2. **`F-12` (`CF3-Scoped`) — Frame-Invariant SI Emergent Allometry Shield**:
+   - *Defect Closed*: Scaling `max_single_crown_px` by `0.095 × valid_img_px` shrank under oblique flightline black nodata borders (`41.34%` on `Selva_BCI_1389`), forcing intact `25.6–28.6 m` tropical emergent crowns (`0` disjoint children) into Watershed (`40` over-split shards).
+   - *Law*: Replace `0.095 × valid_img_px` with frame-invariant `0.095 × H × W` base ceiling + physical SI emergent cap `min(0.16 × H × W, π × (20.0 / gsd_m)²)`, shielding `ff_only` child pools **strictly** when `clean_a > max_single_crown_px`, `sc ≥ 0.68`, `sol ≥ 0.74`, `circ ≥ 0.28`, and `_has_bisecting_shadow_crevice == False` (`0` TP loss on `SPA24` `17/17`).
+3. **`F-13` (`CF4`) — Polsby-Popper (`4πA/P²`) Carving Priority, `≥ 2`-Seam Corner Veto & Sliver Filter**:
+   - *Defect Closed*: Sub-window proposals clipped flush against `≥ 2` inner tile seams (`SPA16` `P[25]` at `(714, 714)`) were promoted as Protected Anchors, carving `90°` square notches out of untruncated Full-Frame crowns and leaving thin crescent rinds.
+   - *Law*: Sort planar carving priority by `score × (0.85 + 0.15 × min(1.0, pre_circ / 0.55))`, veto `Tier 1B` sub-window masks touching `≥ 2` inner seams, and prune post-carve crescent/rind slivers (`keep_ratio`, `circularity`, `solidity`) while guaranteeing `overlap_px == 0` and `Euler == 1`.
+
+#### 5.7.2 One-Shot Official Weecology Held-Out TLS Validation Leaderboard (`Complete-59`, `3,661` Crowns)
+
+Computed with Weecology's exact **Source-Balanced Macro Harmonic `F1`** (`make_benchmark_table.py:279-286` — `1` source = `1` equal vote → `F1 = 2 × Avg_R × Avg_P / (Avg_R + Avg_P)`):
+
+| Rank | Model / Pipeline | Forestry Fine-Tuned? | Weecology Src-Macro `F1` (`MaskAware`) | Mask `Recall` | `MaskAware P` | Unforgiving `Plain P` | Unforgiving `Plain F1` | `MaskAcc` | `OvSplitGT` | `Overlap Px` / `Euler ≠ 1` |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `#1` | `CanopyRS DINO+SAM3 (0.30)` *(Official LB)* | Yes (`SelvaMask + NQOS`) | **`0.6830`** | — | — | `0.3080` *(v0.22)* | — | — | — | Non-planar |
+| **`#2`** | **`CanopyGIS v1.8 (Zero-Shot)` ★** | **No (`0` Forestry FT)** | **`0.6201`** *(Unseen-51: **`0.6311`**)* | `0.4551` | **`0.9727`** | **`0.5464`** | **`0.4966`** | **`0.3173`** | **`1,046`** *(`-23.5%`)* | **`0` / `0`** |
+| — | *`CanopyGIS v1.6b (Baseline)`* *(Internal Ref)* | *No (`0` Forestry FT)* | *`0.6211` (Unseen-51: `0.6321`)* | *`0.4598`* | *`0.9567`* | *`0.4980`* | *`0.4781`* | *`0.3002`* | *`1,367`* | *`0` / `0`* |
+| `#3` | `Mask R-CNN Detectron2 FT` *(Official LB)* | Yes (`MillionTrees`) | `0.5910` | — | — | `0.3850` *(v0.22)* | — | — | — | Non-planar |
+| — | *`Raw Meta SAM 3 ('tree' ≥ 0.10)`* *(Frozen Cache)* | *No (`0` Forestry FT)* | *`0.5702` (Unseen-51: `0.5838`)* | *`0.5304`* | *`0.6164`* | *`0.3186`* | *`0.3981`* | *`0.2401`* | *`1,673`* | *`245.6M` / `3,441`* |
+| `#4` | `detectree2` *(Official LB)* | Yes (`Forestry Mask R-CNN`) | `0.5550` | — | — | `0.2500` *(v0.22)* | — | — | — | Non-planar |
+| `#5` | `Meta SAM 3` *(Official LB)* | No (`0` Forestry FT) | `0.5490` | — | — | `0.2460` *(v0.22)* | — | — | — | Non-planar |
+| `#6` | `TreeFormer + SAM 2` *(Official LB)* | Yes (`Forestry Point+SAM2`) | `0.3880` | — | — | — | — | — | — | Non-planar |
+
+#### 5.7.3 Cross-Split Summary (`Dev-20` + Blind `Holdout_OOD_12` + Blind `Official_TLS_Unseen_51`)
+
+| Evaluation Split (`GT Crowns`) | Engine | Weecology Src-Macro `F1` | `MaskAware P` | Unforgiving `Plain P` | Unforgiving `Plain F1` | Tile `Strict F1` | `MaskAcc` | `OvSplitGT` | `Counting MAE` | `Euler ≠ 1` / `OvPx` |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`Dev-20` (`20` Tiles, `1,007` Rows / `1,005` GT)** | `v1.6b` → **`v1.8 ★`** | `0.7182 →` **`0.7204`** | `0.9469 →` **`0.9585`** | `0.3416 →` **`0.3937`** *(`+5.21 pts`)* | `0.4253 →` **`0.4640`** *(`+3.87 pts`)* | `0.5974 →` **`0.6153`** | `0.2496 →` **`0.2768`** | `249 →` **`172`** *(`-30.9%`)* | `43.24 →` **`34.80`** | **`0` / `0`** |
+| **`Holdout_OOD_12` (`12` Unseen, `507` GT)** | `v1.6b` → **`v1.8 ★`** | `0.7599 → 0.7524` | `0.9975 → 0.9972` | `0.4395 →` **`0.4715`** *(`+3.20 pts`)* | `0.5122 →` **`0.5296`** *(`+1.74 pts`)* | `0.6726 →` **`0.6739`** | `0.3482 →` **`0.3608`** | `94 →` **`76`** *(`-19.1%`)* | `23.42 →` **`20.92`** | **`0` / `0`** |
+| **`TLS Unseen-51` (`51` Unseen, `3,029` GT)** | `v1.6b` → **`v1.8 ★`** | `0.6321 → 0.6311` | `0.9571 →` **`0.9728`** | `0.4917 →` **`0.5432`** *(`+5.15 pts`)* | `0.4816 →` **`0.5022`** *(`+2.06 pts`)* | `0.5056 →` **`0.5266`** | `0.3018 →` **`0.3209`** | `1,198 →` **`912`** *(`-23.9%`)* | `28.43 →` **`24.19`** | **`0` / `0`** |
+| **`TLS Complete-59` (`59` Tiles, `3,661` GT)** | `v1.6b` → **`v1.8 ★`** | `0.6211 → 0.6201` | `0.9567 →` **`0.9727`** | `0.4980 →` **`0.5464`** *(`+4.84 pts`)* | `0.4781 →` **`0.4966`** *(`+1.85 pts`)* | `0.5061 →` **`0.5257`** | `0.3002 →` **`0.3173`** | `1,367 →` **`1,046`** *(`-23.5%`)* | `27.17 →` **`23.47`** | **`0` / `0`** |
+
+> **Phase 2 Strategic Bottleneck Proof (`Track B — Detector Box Prompts + CanopyGIS v1.8`)**: With `Mask-Aware Precision = 0.9727` (`97.3%`) and `Plain Precision = 0.5464` (`+23.84 pts` above `#1 CanopyRS 0.308`), `100%` of the remaining `0.0629` gap to forestry-trained `CanopyRS` (`0.6830`) stems from zero-shot `SAM 3` text-prompt **Recall (`0.4551`)** on `2,500–3,800 px` `1.1–2.0 cm/px` dense stands. Phase 2 evaluates `CanopyRS DINO Swin-L` (`Apache-2.0`) box prompts + `SAM 3` + `CanopyGIS v1.8` carving strictly on `100%` `CanopyRS`-unseen splits (`Official_TLS_59` + `Holdout_OOD_12`).
+
+---
+
 ## 6. Standard Operating Commands (Reproducible CLI Harness)
 
 ```powershell
-# 1. Run Production CanopyGIS Unit & Topology Test Suite (< 8s)
-C:\Users\User\Miniconda3\envs\nerfstudio\python.exe "c:\Users\User\Desktop\Shma Internship\OpenSource-Packages\CanopyGIS\scripts\test_canopy_v2.py"
+# 1. Run Production CanopyGIS Unit & v1.8 Invariant Test Suite (< 10s)
+python scripts/test_canopy_v2.py
 
-# 2. Run Stratified 60/20/20 (20 Tiles, 1,007 GT Crowns) v1.6 Benchmark & C-GATE-1..4 Verification
-C:\Users\User\Miniconda3\envs\nerfstudio\python.exe "C:\Users\User\.gemini\antigravity\brain\86720458-1910-468e-9920-fa62f07ef374\scratch\run_v16_honest_evolution.py" --include-holdout
+# 2. Fetch SHA-Locked Holdout_v18 & Build Streaming Zero-GT Frozen SAM 3 Caches
+python "$env:SCRATCH_DIR/fetch_v18_twopart_holdout.py"
+python "$env:SCRATCH_DIR/build_v18_frozen_cache.py"
 
-# 3. Run C-GATE-5 Bangkok 3-Site STRtree Parity & Euler==1 Carving Verification (~20s)
-C:\Users\User\Miniconda3\envs\nerfstudio\python.exe "C:\Users\User\.gemini\antigravity\brain\86720458-1910-468e-9920-fa62f07ef374\scratch\verify_bangkok_3site_cgate5.py"
+# 3. Run Dev-20 Regression + One-Shot Blind Holdout_v18 (OOD_12 + Official TLS_59 = 3,661 Crowns)
+python "$env:SCRATCH_DIR/run_v18_evolution_twopart.py" --mode dev20
+python "$env:SCRATCH_DIR/run_v18_evolution_twopart.py" --mode blind-holdout
 
-# 4. Legacy Stage-1 (8-Tile) Frozen Ablation & Forensic Honeycomb Audit (< 20s)
-C:\Users\User\Miniconda3\envs\nerfstudio\python.exe "C:\Users\User\.gemini\antigravity\brain\86720458-1910-468e-9920-fa62f07ef374\scratch\ablation_watershed_rag_ladder.py" --run-all
-C:\Users\User\Miniconda3\envs\nerfstudio\python.exe "C:\Users\User\.gemini\antigravity\brain\86720458-1910-468e-9920-fa62f07ef374\scratch\forensic_honeycomb_and_metric_audit.py"
+# 4. Run C-GATE-5 Bangkok 3-Site STRtree Parity & Euler==1 Carving Verification (~20s)
+python "$env:SCRATCH_DIR/verify_bangkok_3site_cgate5.py"
 ```
