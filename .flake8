@@ -1,0 +1,6 @@
+[flake8]
+max-line-length = 120
+per-file-ignores =
+    *src/main.py: E203, E302, E303, E305, E402, E501, F401, W293
+    *src/canopy_v2.py: E203, E501, F401
+    *scripts/test_canopy_v2.py: E302, E402, E501
