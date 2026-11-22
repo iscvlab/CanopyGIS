@@ -1,6 +1,6 @@
 # CanopyGIS — Hybrid Tri-Engine Urban Tree Canopy & Centroid Extraction (`SAM 3` + `Weecology DeepForest 2.1.0` + `Geodesic Watershed + RAG`)
 
-[![Release](https://img.shields.io/badge/Release-v1.0.0-121417?style=flat-square)](https://github.com/napattan/CanopyGIS)
+[![Release](https://img.shields.io/badge/Release-v1.8.1-121417?style=flat-square)](https://github.com/napattan/CanopyGIS/releases/tag/v1.8.1)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-GitHub_Pages-059669?style=flat-square)](https://napattan.github.io/CanopyGIS/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB?style=flat-square)](./LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](./requirements.txt)
@@ -124,7 +124,7 @@ The web portal opens directly centered on the primary thesis site and supports 1
    - **`Step 2B` (Closed-Canopy Woody Stand Promotion)**: Promotes medium multi-crown woody stands (`cl_px <= 7.5 × single_crown_max_px`) satisfying 3D woody relief and inter-crown shadow depth;
    - **`Step 2C` (Multi-Sided Woodland Interior Enclosure Fill — 4-Way Cardinal Rotational Symmetry)**: Recovers interior woodland pockets (`U0`–`U5`) inside continuous forest masks (`cl_px > max_stand_px`) when enclosed on at least 3 of the 4 cardinal sides (`(int(has_n) + int(has_s) + int(has_w) + int(has_e)) >= 3`);
 3. **Tier 2 — `Weecology DeepForest 2.1.0` Closed-Canopy Nadir Detector (`deepforest_watershed`)**: Runs `DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`) on `Stream A` (`df_model.predict_tile(...)` in [`src/canopy_v2.py`](src/canopy_v2.py)) to detect interior nadir treetop centroids inside continuous closed-canopy forest stands (`Seed Priority 1`);
-4. **Tier 3 — Global Shadow-Crevice Geodesic Watershed with Vectorized `1D LUT` (`np.bincount`) 3-Pass `RAG` Coalescing, `CF2` 3D Relief Shadow Veto, `CF3-Scoped` SI Emergent Shield, `CF4` Polsby-Popper Roundness & Symmetric Voronoi `Euler == 1` Carving (`watershed_forest_crown`, `CanopyGIS v1.8`)**: Fuses `DeepForest 2.1.0` treetop seeds with Morphological Black-Hat shadow-crevice relief, `CF2` All-Score 3D Micro-Relief & Radial Dome Convexity Veto (`F-11`), `CF3-Scoped` Frame-Invariant SI Emergent Allometry Shield (`0.095 × H × W` + `20 m` radius cap, `F-12`), and `CF4` Polsby-Popper Roundness (`4πA/P² ≥ 0.22`), Lab `a*` Chlorophyll Seam Gate, `≥ 2`-Seam Corner Veto & Pre-Filter Recall Rescue (`F-13`), partitions `forest_footprint_mask` globally via `skimage.segmentation.watershed`, executes vectorized `1D LUT` (`np.bincount` + `scipy.ndimage.find_objects`) 3-pass `RAG` small-basin coalescing with a shadow-crevice merge barrier (`< 4.0 m²` shards reduced `1,568 → 0` [`-100%`], `< 8.0 m²` shards reduced `3,363 → 22` [`-99.35%`] on `ON`), and applies **Symmetric Voronoi Shoulder Partitioning + 4-Connected Hole-Free Closure (`Euler == 1`, `overlap_px == 0`)** (`MillionTrees v0.25` `83`-tile / `4,673` unique-crown 3-Tier Standardized Benchmark across 8 global biomes: **`#2 Overall / #1 Pure Zero-Shot`** on the Official `59`-Tile Held-Out TLS Validation Leaderboard at **`0.6201` Source-Macro `F1`** [`Unseen-51 = 0.6311`], **`0.9727` Mask-Aware Precision**, **`0.5464` Plain Unmasked Precision** [`+77.4%` higher precision than fine-tuned `#1 CanopyRS 0.308`], **`0.7524` Source-Macro `F1`** on Blind `Holdout_OOD_12`, **`0.7204`** on `Dev-20`, `0` overlapping pixels, and `0` `Euler ≠ 1` masks in **`15.9 min` (`954s`) on a Single Personal PC with `0` training hours**);
+4. **Tier 3 — Global Shadow-Crevice Geodesic Watershed with Vectorized `1D LUT` (`np.bincount`) 3-Pass `RAG` Coalescing, `CF2` 3D Relief Shadow Veto, `CF3-Scoped` SI Emergent Shield, `CF4` Polsby-Popper Roundness & Symmetric Voronoi `Euler == 1` Carving (`watershed_forest_crown`, `CanopyGIS v1.8.1`)**: Fuses `DeepForest 2.1.0` treetop seeds (or pure zero-shot `facebook/sam3` proposals in standalone `canopygis_v18_eval.py`) with Morphological Black-Hat shadow-crevice relief, `CF2` All-Score 3D Micro-Relief & Radial Dome Convexity Veto (`F-11`), `CF3-Scoped` Frame-Invariant SI Emergent Allometry Shield (`0.095 × H × W` + `20 m` radius cap, `F-12`), and `CF4` Polsby-Popper Roundness (`4πA/P² ≥ 0.22`), Lab `a*` Chlorophyll Seam Gate, `≥ 2`-Seam Corner Veto & Pre-Filter Recall Rescue (`F-13`), partitions `forest_footprint_mask` globally via `skimage.segmentation.watershed`, executes vectorized `1D LUT` (`np.bincount` + `scipy.ndimage.find_objects`) 3-pass `RAG` small-basin coalescing with a shadow-crevice merge barrier (`< 4.0 m²` shards reduced `1,568 → 0` [`-100%`], `< 8.0 m²` shards reduced `3,363 → 22` [`-99.35%`] on `ON`), and applies **Symmetric Voronoi Shoulder Partitioning + 4-Connected Hole-Free Closure (`Euler == 1`, `overlap_px == 0`)** — verified on the full **Official `MillionTrees v0.25` `TreePolygons` Benchmark (`5,815` tile evaluations / `458,851` predicted crowns with `0` overlap pixels and `0` `Euler ≠ 1` violations)**: **`#1 Overall` `MaskAwarePrecision` (`0.936`) & `#2 Overall / #1 Standardized Zero-Shot` (`F1 = 0.744`, `AP40 = 0.439`, `AP60 = 0.350` [`2.00×` raw `SAM 3`]) on full `out-of-distribution` (`4,133` tiles)**, **`#2 Overall` `MaskAwarePrecision` (`0.882`) & `#3 Overall / #1 Pure Zero-Shot` (`F1 = 0.604`) on full `within-distribution` (`1,623` tiles)**, and **`#1 Overall` unforgiving `Plain Precision` (`0.506` macro / `0.528` pooled), `F1_plain` (`0.477` / `0.494`), & `Allen AP60` (`0.0628`) on held-out `TLS Complete-59` validation (`59` tiles)** with **`0` forestry training hours** and **`< 5 GB` peak GPU VRAM**;
 5. **Polygon Color Modes (`Distinct Crowns` Default + `Confidence Tiers` Optional) & Per-Site Persistent Polygon ROI**:
    - **`Distinct Crowns` (Default)**: `O(N log N)` `shapely.STRtree`-accelerated DSatur planar graph coloring (`assign_adjacent_distinct_colors`, `0` color-parity diffs across `6,559` Bangkok crowns) guaranteeing touching polygons receive distinct colors;
    - **`Confidence Tiers` (Optional)**: 4-tier anti-cheat separation confidence (`#059669` High `80–98%`, `#2563eb` Good `60–79%`, `#eab308` Moderate `45–59%`, `#dc2626` Low `<45%`);
@@ -140,6 +140,19 @@ The web portal opens directly centered on the primary thesis site and supports 1
 git clone https://github.com/napattan/CanopyGIS.git
 cd CanopyGIS
 pip install -r requirements.txt
+```
+
+**Standalone `v1.8.1` Zero-Shot Planar Evaluator Package (`canopygis_v18_eval`):**
+```bash
+pip install "canopygis @ git+https://github.com/napattan/CanopyGIS.git@v1.8.1"
+```
+
+```python
+from canopygis_v18_eval import CanopyGISv18Predictor
+
+predictor = CanopyGISv18Predictor.from_pretrained(model_id="facebook/sam3", device="cuda")
+pred = predictor.predict_tile(img_rgb_uint8, gsd_m=None, score_threshold=0.10)
+# Returns {"y": uint8 Tensor[N, H, W] (overlap_px == 0, Euler == 1), "scores": float32 Tensor[N], "labels": int64 Tensor[N]}
 ```
 
 ### Step 2: Launch the Interactive Web Application (`localhost:8000`)
@@ -161,7 +174,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 Then open **`http://127.0.0.1:8000`** in your browser.
-- **Instant Pre-Loaded Demo**: The repository includes pre-computed GeoJSON sessions for **On Nut (`2,987` crowns)** and **Nong Khaem (`2,110` crowns)** in `src/uploads/` plus **Ramintra Sports Park** in `data/project_site_canopies.geojson`. You can immediately toggle `SAM 3` / `DeepForest` / `Watershed` source filters and drag the `< 30 ms` real-time physical sliders without waiting for GPU inference.
+- **Instant Pre-Loaded Demo**: The repository includes pre-computed GeoJSON sessions for **On Nut (`2,987` crowns)**, **Nong Khaem (`2,110` crowns)**, and **Ramintra Sports Park (`1,462` crowns)** in `src/uploads/`. You can immediately toggle `SAM 3` / `DeepForest` / `Watershed` source filters and drag the `< 30 ms` real-time physical sliders without waiting for GPU inference.
 
 **Option C — Share Live via Cloudflare Tunnel (Zero-Install for Collaborators):**
 ```bash
@@ -182,48 +195,65 @@ Set `CANOPY_V2_QA_MAX_TILES=0` before `qa_v2_m1.py` to run all 99 M1 tiles; the 
 
 ## 3. Benchmarks, Verification & Deep Reference
 
-### 3.1 Global `MillionTrees v0.25` Benchmark (`CanopyGIS v1.8` Pure Zero-Shot), 3-Tier Standardized Protocol & `v1.9` Roadmap
+### 3.1 Official `MillionTrees v0.25` `TreePolygons` Full-Benchmark Results (`CanopyGIS v1.8.1` Pure Zero-Shot)
 
-![CanopyGIS v1.8 Accuracy x Precision Pareto Front & Generation Ratchet](docs/assets/chart_v18_pareto_and_evolution.png)
+![CanopyGIS v1.8.1 Official Out-of-Distribution Overlays Across All 6 Held-Out Sources](docs/assets/panel_v181_ood_official.jpg)
 
-#### Hardware & Zero-Shot Breakthrough Contrast (`Complete-59` Held-Out TLS Validation, `3,661` Crowns)
+Evaluated across **all `3` official `MillionTrees v0.25` `TreePolygons` splits** (`out-of-distribution` `4,133` tiles, `within-distribution` `1,623` tiles, and held-out `TLS Complete-59` validation `59` tiles = **`5,815` tile evaluations / `458,851` predicted crowns**) using a single frozen pure zero-shot configuration (`facebook/sam3`, `image_size=1024`, `resolution_mode=direct`, `gsd_m=None`, `score_threshold=0.10`, **`0` forestry training hours**, **`< 5 GB` peak GPU VRAM** on a single consumer workstation):
 
-Unlike supervised leaderboard entries that require multi-day fine-tuning on university supercomputer clusters (`NVIDIA B200` / `L4` GPUs with `56–240 GB` system RAM) and suffer severe unmasked over-prediction (`Plain Precision = 0.155–0.340`), **`CanopyGIS v1.8`** operates **100% Pure Zero-Shot (`0` training hours, `0` forestry-specific detector weights)** on a **Single Personal PC**, completing all **`83` benchmark tiles (`4,673` unique crowns)** in **`15.9 minutes` (`954s`)** while delivering **`+77.4%` higher Plain Unmasked Precision (`0.5464` vs. `0.3080`)** and mathematically planar topology (`overlap_px = 0`, `Euler ≠ 1 = 0`):
+#### Horizontal Bar Comparison — Official `out-of-distribution` (`4,133` Tiles, `v0.25`, `0 ms` Render)
 
-| Rank (`TLS Complete-59`) | Model / Pipeline | Training & Fine-Tuning Regime | Compute Hardware & SLURM Wall-Clock | Weecology TLS Src-Macro `F1` | `MaskAware Precision` | Unforgiving `Plain Precision` | Planar Topology (`OvPx` / `Euler≠1`) |
-| :---: | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| `#1` | `CanopyRS DINO + SAM 3` *(Official LB)* | Supervised Fine-Tuned (`SelvaMask + NQOS`, TLS site overlap) | UF HiPerGator **`NVIDIA B200 GPU` + `88 GB RAM`** (`24h` SLURM) | **`0.660–0.683`** | — | `0.3080` | Non-planar (overlapping boxes/masks) |
-| **`#2` (`#1 Zero-Shot`)** | **`CanopyGIS v1.8 (Ours — Pure Zero-Shot)` ★** | **`100%` Zero-Shot (`0` Training Hours, `0` Forestry Weights)** | **Single Personal PC (`15.9 min` / `954s` for all `83` tiles)** | **`0.6201`** *(Unseen-51: **`0.6311`**)* | **`0.9727`** | **`0.5464` (`+77.4%`)** | **`0 px` / `0` (`100%` Planar `Euler==1`)** |
-| `#3` | `Mask R-CNN Detectron2 FT` *(Official LB)* | Supervised Fine-Tuned (`MillionTrees`) | UF HiPerGator **`NVIDIA B200 GPU` + `240 GB RAM`** (`48h` SLURM) | `0.5910` | — | `0.1550` | Non-planar |
-| `#4` | `detectree2` *(Official LB)* | Supervised Fine-Tuned (`Forestry Mask R-CNN`) | **`NVIDIA L4 GPU` + `200 GB RAM`** (`24h` SLURM) | `0.5550` | — | `0.3400` | Non-planar |
-| `#5` | `Raw Meta SAM 3 ("tree")` *(Official LB)* | Zero-Shot Foundation Baseline | **`NVIDIA L4 GPU` + `56 GB RAM`** (`24h` SLURM) | `0.5490` | `0.6164` | `0.1930` | Non-planar (`245.6M` overlap px) |
-| `#6` | `TreeFormer + SAM 2` *(Official LB)* | Supervised Point Keypoint + `SAM 2` | Cluster GPU | `0.3880` | — | `0.2640` | Non-planar |
+| Evaluation Dimension | Model Configuration | Visual Comparison Bar | Measured Score & Delta |
+| :--- | :--- | :--- | :--- |
+| **1. `MaskAwarePrecision` ↑** | **CanopyGIS v1.8.1 (Pure 0-Shot, thr `0.10`)**<br>Mask R-CNN (Detectron2, MillionTrees FT, `0.15`)<br>CanopyRS DINO + SAM3 (SelvaMask, thr `0.30`)<br>SAM3 (`facebook/sam3` raw, thr `0.10`)<br>detectree2 (`250312_flexi`, thr `0.10`) | `███████████████████░` **`0.936` (#1)**<br>`███████████████████░` `0.929`<br>`██████████████████░░` `0.878`<br>`█████████████░░░░░░░` `0.674`<br>`█████████████░░░░░░░` `0.640` | **`#1 Overall`** (`+0.058` vs CanopyRS)<br>`0.007` behind CanopyGIS<br>Forestry-pretrained + tuned `0.30`<br>`+0.262` gain on same `SAM3` weights<br>`+0.296` over forestry `detectree2` |
+| **2. Detection `F1` ↑** | CanopyRS DINO + SAM3 (SelvaMask, thr `0.30`)<br>**CanopyGIS v1.8.1 (Pure 0-Shot, thr `0.10`)**<br>detectree2 (`250312_flexi`, thr `0.10`)<br>SAM3 (`facebook/sam3` raw, thr `0.10`)<br>Mask R-CNN (Detectron2, MillionTrees FT, `0.15`) | `█████████████████░░░` `0.839`<br>`███████████████░░░░░` **`0.744` (#2)**<br>`█████████████░░░░░░░` `0.628`<br>`████████████░░░░░░░░` `0.612`<br>`████████████░░░░░░░░` `0.601` | `#1` (forestry-pretrained + tuned `0.30`)<br>**`#2 Overall / #1 Std Zero-Shot`**<br>`+0.116` gain over `detectree2`<br>`+0.132` gain over raw `SAM3`<br>`+0.143` gain over FT `Mask R-CNN` |
+| **3. Strict Localization `AP60` ↑** | CanopyRS DINO + SAM3 (SelvaMask, thr `0.30`)<br>**CanopyGIS v1.8.1 (Pure 0-Shot, thr `0.10`)**<br>Mask R-CNN (Detectron2, MillionTrees FT, `0.15`)<br>detectree2 (`250312_flexi`, thr `0.10`)<br>SAM3 (`facebook/sam3` raw, thr `0.10`) | `████████████████████` `0.415`<br>`█████████████████░░░` **`0.350` (#2)**<br>`███████████░░░░░░░░░` `0.232`<br>`███████████░░░░░░░░░` `0.222`<br>`████████░░░░░░░░░░░░` `0.175` | `81.2%` `AP60/AP40` retention<br>**`79.7%` retention (`2.00×` raw `SAM3`)**<br>`+0.118` gain over FT `Mask R-CNN`<br>`+0.128` gain over `detectree2`<br>Same `facebook/sam3` weights |
 
-#### Locked 3-Tier Standardized Benchmark Protocol (`v1.8`, `v1.9` & Future Generations)
+#### Official `MillionTrees v0.25` Leaderboard Tables (`TreePolygons`, Exact `make_benchmark_table.py` Parity)
 
-To guarantee zero data leakage (`C-CHEAT-01..09`) and fast, reproducible Apple-to-Apple comparisons on a single workstation, all `CanopyGIS` generations are evaluated under a **3-Tier Standardized Benchmark Protocol** (archived in [`docs/benchmarks/v18_image_only_manifest.json`](docs/benchmarks/v18_image_only_manifest.json) and [`docs/benchmarks/v18_blind_holdout_twopart_receipts.json`](docs/benchmarks/v18_blind_holdout_twopart_receipts.json)):
+**Split 1 — `out-of-distribution` Test (`4,133` tiles, `6` held-out sources, `309,049` predicted / `124,786` GT crowns, `14h 37m`):**
 
-| Benchmark Tier | Split Composition & Scope | Tiles / GT Crowns | Wall-Clock Runtime (Personal PC) | `v1.8` Src-Macro `F1` | `v1.8` `MaskAware P` / `Plain P` | Role in Evolution Lifecycle |
-| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Tier 1 — Fast Dev & Ablation Suite** | **`Dev-20`** (`Train_14 + Val_6` across 6 global biomes) | `20` tiles / `1,005` unique GT crowns (`1,007` CSV rows) | `~2–3 min` (from `.npz` neural cache) | **`0.7204`** | `0.9585` / **`0.3937`** (`OvSplit: 249 → 172`, `-30.9%`) | Fast physical parameter tuning, `108`-config counterfactual sweeps (`CF1..CF5`), and unit regression gating. |
-| **Tier 2A — Blind Multi-Biome OOD Ruler** | **`Holdout_OOD_12`** (`2` unseen tiles × `6` official OOD sources: `Troles`, `Miranda`, `Lefebvre`, `NEON MT`, `Bohlman` BCI, `Takeshige`) | `12` unseen tiles / `507` GT crowns | Included in `15.9 min` full 83-tile run | **`0.7524`** | **`0.9972`** / **`0.4715`** (`OvSplit: 94 → 76`, `-19.1%`) | Primary blind cross-continent generalization ruler across boreal, temperate, Mediterranean, and tropical rainforest canopies. |
-| **Tier 2B — Official Blind TLS Validation Ruler** | **`Official TLS Complete-59`** (`100%` of complete packaged `v0.25` held-out LiDAR/TLS validation tiles: `24` `Allen` + `35` `Frey`; `51` strictly unseen + `8` `Dev-20`) | `59` tiles (`51` unseen) / **`3,661` GT crowns** (`3,029` unseen) | Included in `15.9 min` full 83-tile run (`83` unique tiles / `4,673` unique crowns total) | **`0.6201`** *(Unseen-51: **`0.6311`**)* | **`0.9727`** / **`0.5464`** (`OvSplit: 1,367 → 1,046`, `-23.5%`) | Primary version-to-version blind benchmark against ground-truth terrestrial laser scanning (`TLS`) stems without running multi-day cluster jobs. |
-| **Tier 3 — One-Time Full Leaderboard Submission** | **Full `MillionTrees` `OOD` (`4,133` tiles) & `WD` Test Splits** | Full Packaged Test Splits | Reserved (`1×` final run) | *Scheduled for `v1.9`* | *Scheduled for `v1.9`* | Executed once when `CanopyGIS v1.9` is finalized for official `weecology/MillionTrees` leaderboard PR submission. |
+| Rank | Model | Fine-tuned | Thresh | MaskRecall | MaskAwareP | F1 | MaskAcc | AP40 | AP60 |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 1 | `CanopyRS DINO + SAM3 (SelvaMask)` | ✗ *(forestry)* | `0.30` | `0.803` | `0.878` | `0.839` | `0.322` | `0.511` | `0.415` |
+| **2** | **`CanopyGIS v1.8.1` (planar 0-shot)** | **✗ (`0` forestry)** | **`0.10`** | **`0.617`** | **`0.936` (#1)** | **`0.744`** | **`0.314`** | **`0.439`** | **`0.350`** |
+| 3 | `detectree2` (`250312_flexi.pth`) | ✗ *(forestry)* | `0.10` | `0.617` | `0.640` | `0.628` | `0.172` | `0.306` | `0.222` |
+| 4 | `SAM3` (`facebook/sam3`) | ✗ (`0` forestry) | `0.10` | `0.561` | `0.674` | `0.612` | `0.169` | `0.256` | `0.175` |
+| 5 | `Mask R-CNN (Detectron2)` | ✓ *(MillionTrees)* | `0.15` | `0.444` | `0.929` | `0.601` | `0.314` | `0.308` | `0.232` |
 
-#### Visual Proof Across All 3 Benchmark Splits (`TLS Complete-59`, `Holdout_OOD_12`, `Dev-20`)
+**Split 2 — `within-distribution` Test (`1,623` tiles, `24` sources, `146,168` predicted / `85,625` GT crowns, `5h 57m`):**
 
-| **Tier 2B: Official Held-Out TLS Validation (`Complete-59`, `3,661` Crowns)** | **Tier 2A: Unseen Multi-Biome OOD (`Holdout_OOD_12`, `507` Crowns)** | **Tier 1: `Dev-20` Biophysical Evolution Triad (`Raw SAM 3 → v1.6b → v1.8`)** |
+| Rank | Model | Fine-tuned | Thresh | MaskRecall | MaskAwareP | F1 | MaskAcc | AP40 | AP60 |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 1 | `CanopyRS DINO + SAM3 (SelvaMask)` | ✗ *(forestry)* | `0.30` | `0.724` | `0.867` | `0.789` | `0.288` | `0.387` | `0.244` |
+| 2 | `Mask R-CNN (Detectron2)` | ✓ *(MillionTrees)* | `0.15` | `0.641` | `0.910` | `0.752` | `0.406` | `0.479` | `0.319` |
+| **3** | **`CanopyGIS v1.8.1` (planar 0-shot)** | **✗ (`0` forestry)** | **`0.10`** | **`0.459`** | **`0.882` (#2)** | **`0.604`** | **`0.208`** | **`0.243`** | **`0.156`** |
+| 4 | `SAM3` (`facebook/sam3`) | ✗ (`0` forestry) | `0.10` | `0.547` | `0.612` | `0.578` | `0.146` | `0.268` | `0.181` |
+| 5 | `detectree2` (`250312_flexi.pth`) | ✗ *(forestry)* | `0.10` | `0.554` | `0.586` | `0.570` | `0.151` | `0.263` | `0.175` |
+
+**Split 3 — Held-Out `TLS Complete-59` Validation (`24` Allen + `35` Frey = `59` tiles, `3,634` predicted / `3,655` GT crowns, `14m 04s`):**
+- On matched `Complete-59` tiles (rescored identically via `weecology/MillionTrees` `scripts/rescore_validation_ap.py --max-margin 0.025`), **`CanopyGIS v1.8.1`** achieves **`#1 Overall` unforgiving `Plain Precision` (`0.5060` macro / `0.5275` pooled)**, **`#1 Overall` unforgiving `F1_plain` (`0.4770` macro / `0.4939` pooled**, beating `Mask R-CNN 0.4482 / 0.4410` and `CanopyRS 0.4343 / 0.4564`), **`#1 Overall` `Allen AP60` (`0.0628`)**, and **`#2 Overall / #1 Standardized Zero-Shot`** on official `F1` (`0.6268`), Macro `AP40` (`0.3544`, pooled `0.3295`), Macro `AP50` (`0.2541`), and Macro `AP60` (`0.1596`, pooled `0.1180`).
+- **Cumulative Planar Topology Guarantee (`5,815` Tile Evaluations / `458,851` Predicted Crowns)**: **`overlap_px = 0`** (`max_stack_depth = 1`), **`empty_masks = 0`**, **`multi_comp = 0`**, **`holes = 0`**, **`Euler ≠ 1 = 0`**, and **`rect_fill > 0.915 = 0`** (`max = 0.914778`).
+
+<details>
+<summary><b>Click to expand Additional Visual Proof Panels & Per-Source OOD Breakdown</b></summary>
+
+| Held-Out OOD Source | Tiles (`n`) | MaskRecall | MaskAwareP | MaskAcc | AP40 | AP60 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Lefebvre et al. 2024` | 1,322 | 0.693 | 0.860 | 0.351 | **0.501** | **0.464** |
+| `Troles et al. 2024` | 2,453 | 0.593 | 0.971 | 0.320 | **0.490** | **0.375** |
+| `Alejandro_Miranda` | 13 | 0.586 | 0.976 | 0.315 | 0.307 | 0.219 |
+| `Takeshige et al. 2025` | 176 | 0.619 | 0.979 | 0.177 | 0.212 | 0.134 |
+| `Bohlman et al. 2008` | 18 | 0.168 | **1.000** | 0.138 | 0.121 | 0.061 |
+| `NEON MultiTemporal` | 151 | 0.391 | 0.953 | 0.073 | 0.064 | 0.035 |
+
+| **Held-Out TLS Validation (`Complete-59`)** | **Multi-Biome Blind OOD (`Holdout_OOD_12`)** | **`Dev-20` Biophysical Evolution Triad** |
 | :---: | :---: | :---: |
 | ![Official TLS Blind Holdout Panel](docs/assets/panel_v18_tls_blind.jpg) | ![Unseen OOD Blind Holdout Panel](docs/assets/panel_v18_ood_blind.jpg) | ![Dev-20 Evolution Triad Panel](docs/assets/panel_v18_dev20_triad.jpg) |
 
-#### `CanopyGIS v1.9` Architecture Roadmap — Self-Prompting Biophysical Feedback Loop (`100%` Pure Zero-Shot)
+![CanopyGIS v1.8.1 Within-Distribution Regimes, Honest Failure Modes & Dataset QA](docs/assets/panel_v181_wd_regimes.jpg)
 
-Our `108`-configuration counterfactual study (`36` parameter variations × `3` splits) proved that `CF2 + CF3-Scoped + CF4` is the global Pareto optimum for single-pass post-processing (`MaskAware Precision = 0.9727`, `Plain Precision = 0.5464`), while aggressive shadow-carving sweeps (`CF1`, `-0.0258` OOD F1) and understory suppression (`CF5`, `-0.0080` OOD F1) degrade cross-biome accuracy. Most importantly, diagnostic attribution on `Complete-59` revealed the exact remaining bottleneck:
-- **`811` missed GT trees (`40.6%` of all false negatives on `Complete-59`)** occur inside dense closed-canopy regions where **Pass-1 `SAM 3` `Prompt A ("tree")` merges `2–3` adjacent crowns into a single mega-mask (`OvSplitGT = 1,046`)**, and `CF2/CF3/CF4` currently slices *inside* the existing mask without re-prompting `SAM 3`.
-- **`CanopyGIS v1.9` (`Self-Prompting Biophysical Feedback Loop`)** remains **100% Pure Zero-Shot (`0` external competitor weights, `0` supervised training)** by turning our physical crown operators into an iterative prompt generator for `SAM 3`:
-  1. **Biophysical Peak & Saddle Extraction**: Inside any oversized candidate mask (`area > 1.35 × π R_med²` or `solidity < 0.78`), use **`CF2` (3D Luminance Dome local maxima)** to locate individual sub-crown apexes and **`CF4` (CIELAB `a*` chlorophyll saddle valleys + Black-Hat shadow crevices)** to trace inter-crown separation troughs.
-  2. **Automated Positive/Negative Prompt Synthesis**: Synthesize **positive point + tight sub-box prompts** at each verified `CF2` 3D luminance dome peak and **negative point prompts** along the surrounding `CF4` shadow/chlorophyll saddle valleys.
-  3. **Targeted 2nd-Pass `SAM 3` Refinement**: Feed the synthesized biophysical point/box prompts back into the already-computed `SAM 3` image embedding (`< 15 ms` per candidate mask reuse, zero backbone re-encoding) to natively segment merged crowns before final `CF4` Polsby-Popper Voronoi carving (**Target: Official TLS Source-Macro `F1` `0.6201 → 0.67–0.70+`**, surpassing fine-tuned `CanopyRS 0.660` while maintaining `100%` Zero-Shot purity on a Single Personal PC).
+</details>
 
 Full mathematical proofs, `C-CHEAT-01..09` rules, and `C-GATE-1..5` receipts are documented in [`docs/CANOPYGIS_EVOLUTION_AND_BENCHMARK_PROTOCOL.md`](docs/CANOPYGIS_EVOLUTION_AND_BENCHMARK_PROTOCOL.md).
 
