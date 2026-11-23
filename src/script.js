@@ -666,6 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     let isStaticDemoMode = isKnownStaticHost;
     let sessionLoadSeq = 0;
+    const staticGeoJsonCache = new Map();
 
     function resolveUploadAssetUrl(rawUrl) {
         if (!rawUrl) return '';
@@ -680,14 +681,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setStaticDemoStatusUI() {
         isStaticDemoMode = true;
+        if (document.body) {
+            document.body.classList.add('static-demo-mode');
+        }
+        const detectionTabBtn = document.querySelector('.sidebar-tab-btn[data-tab="detection"]');
+        const dataTabBtn = document.querySelector('.sidebar-tab-btn[data-tab="data"]');
+        const detectionPane = document.getElementById('tab-pane-detection');
+        const dataPane = document.getElementById('tab-pane-data');
+        if (detectionTabBtn && detectionTabBtn.classList.contains('active') && dataTabBtn && dataPane) {
+            detectionTabBtn.classList.remove('active');
+            if (detectionPane) detectionPane.classList.remove('active');
+            dataTabBtn.classList.add('active');
+            dataPane.classList.add('active');
+        }
         if (statusIndicator) statusIndicator.className = 'status-indicator online';
-        if (systemStatusEl) systemStatusEl.innerText = 'Interactive Demo Mode (v1.8.1)';
+        if (systemStatusEl) systemStatusEl.innerText = 'Static Showcase Mode (v1.8.1)';
+        const footerSourceLabel = document.getElementById('footer-label-source');
+        const tokenGoogleEl = document.getElementById('token-google');
+        const footerEngineLabel = document.getElementById('footer-label-engine');
         const samEl = document.getElementById('model-sam');
+        if (footerSourceLabel) footerSourceLabel.innerText = 'Precomputed VHR Sites:';
+        if (tokenGoogleEl) {
+            tokenGoogleEl.className = 'token-status active';
+            tokenGoogleEl.innerText = '3 SITES LOADED';
+            tokenGoogleEl.title = 'On Nut (2,987), Nong Khaem (2,110), and Ramintra (1,462) precomputed crown sessions';
+        }
+        if (footerEngineLabel) footerEngineLabel.innerText = 'Portal Data (SAM 3 + DF 2.1):';
         if (samEl) {
             samEl.className = 'token-status active';
-            samEl.innerText = 'SAM3 + DF Ready';
-            samEl.title = 'Pre-computed Bangkok VHR crown sessions loaded in static Interactive Demo Mode (v1.8.1)';
+            samEl.innerText = 'STATIC SHOWCASE';
+            samEl.title = 'Pre-computed Bangkok VHR crown sessions loaded in Static Showcase Mode (v1.8.1)';
         }
+    }
+
+    function setLiveBackendStatusUI(deviceLabel) {
+        isStaticDemoMode = false;
+        if (document.body) {
+            document.body.classList.remove('static-demo-mode');
+        }
+        if (statusIndicator) statusIndicator.className = 'status-indicator online';
+        if (systemStatusEl) systemStatusEl.innerText = `Backend Connected (${deviceLabel})`;
+        const footerSourceLabel = document.getElementById('footer-label-source');
+        const tokenGoogleEl = document.getElementById('token-google');
+        const footerEngineLabel = document.getElementById('footer-label-engine');
+        if (footerSourceLabel) footerSourceLabel.innerText = 'Google VHR Satellite:';
+        if (tokenGoogleEl) {
+            tokenGoogleEl.className = 'token-status active';
+            tokenGoogleEl.innerText = 'Ready (z21–22)';
+        }
+        if (footerEngineLabel) footerEngineLabel.innerText = 'Hybrid AI (SAM 3 + DeepForest):';
+        checkSamModelStatus();
     }
 
     // ----------------------------------------------------
@@ -707,10 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const data = await response.json();
             if (data.status === 'running') {
-                isStaticDemoMode = false;
-                statusIndicator.className = 'status-indicator online';
-                systemStatusEl.innerText = `Backend Connected (${data.device.toUpperCase()})`;
-                checkSamModelStatus();
+                setLiveBackendStatusUI(String(data.device || 'CPU').toUpperCase());
                 return;
             }
             throw new Error('Unexpected backend status response');
@@ -731,6 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function checkSamModelStatus() {
+        if (isStaticDemoMode) return;
         const samEl = document.getElementById('model-sam');
         if (!samEl) return;
         samEl.className = 'token-status checking';
@@ -1486,19 +1527,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             try {
                 const primaryUrl = resolveUploadAssetUrl(metadata.result_geojson_url);
-                let gjRes = await fetch(primaryUrl);
-                if (!gjRes.ok && !isStaticDemoMode && metadata.result_geojson_url.startsWith('/static_uploads/')) {
-                    const relUrl = 'uploads/' + metadata.result_geojson_url.slice('/static_uploads/'.length);
-                    gjRes = await fetch(relUrl);
-                }
-                if (loadSeq !== sessionLoadSeq) return;
-                if (gjRes.ok) {
-                    extractedGeoJson = await gjRes.json();
-                    if (loadSeq !== sessionLoadSeq) return;
+                if (isStaticDemoMode && staticGeoJsonCache.has(primaryUrl)) {
+                    extractedGeoJson = staticGeoJsonCache.get(primaryUrl);
                     renderCanopies(extractedGeoJson);
                     btnExportCsv.disabled = false;
                     btnExportGeoJson.disabled = false;
                     addLog(`Restored ${extractedGeoJson.features ? extractedGeoJson.features.length : 0} extracted crowns from cached session (${metadata.filename}).`);
+                } else {
+                    let gjRes = await fetch(primaryUrl);
+                    if (!gjRes.ok && !isStaticDemoMode && metadata.result_geojson_url.startsWith('/static_uploads/')) {
+                        const relUrl = 'uploads/' + metadata.result_geojson_url.slice('/static_uploads/'.length);
+                        gjRes = await fetch(relUrl);
+                    }
+                    if (loadSeq !== sessionLoadSeq) return;
+                    if (gjRes.ok) {
+                        const parsedGj = await gjRes.json();
+                        if (loadSeq !== sessionLoadSeq) return;
+                        if (isStaticDemoMode) {
+                            staticGeoJsonCache.set(primaryUrl, parsedGj);
+                        }
+                        extractedGeoJson = parsedGj;
+                        renderCanopies(extractedGeoJson);
+                        btnExportCsv.disabled = false;
+                        btnExportGeoJson.disabled = false;
+                        addLog(`Restored ${extractedGeoJson.features ? extractedGeoJson.features.length : 0} extracted crowns from cached session (${metadata.filename}).`);
+                    }
                 }
             } catch (e) {
                 console.warn('Could not restore cached extraction GeoJSON:', e);
@@ -1900,6 +1953,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleFileUpload(file) {
+        if (isStaticDemoMode) {
+            addLog('Static Showcase Mode (v1.8.1): custom GeoTIFF/RGB upload requires the local FastAPI backend.');
+            return;
+        }
         resetUploadState();
 
         const formData = new FormData();
@@ -2365,10 +2422,72 @@ document.addEventListener('DOMContentLoaded', () => {
         centroidsLayer.clearLayers();
     }
 
+    function updateStaticBreakdownCard(features) {
+        const totalEl = document.getElementById('demo-breakdown-total');
+        const confEl = document.getElementById('demo-breakdown-conf');
+        const samCountEl = document.getElementById('demo-count-sam3');
+        const dfCountEl = document.getElementById('demo-count-df');
+        const wsCountEl = document.getElementById('demo-count-ws');
+        const samPctEl = document.getElementById('demo-pct-sam3');
+        const dfPctEl = document.getElementById('demo-pct-df');
+        const wsPctEl = document.getElementById('demo-pct-ws');
+        const samBarEl = document.getElementById('demo-bar-sam3');
+        const dfBarEl = document.getElementById('demo-bar-df');
+        const wsBarEl = document.getElementById('demo-bar-ws');
+        if (!totalEl) return;
+
+        const list = Array.isArray(features) ? features : [];
+        const total = list.length;
+        if (total === 0) {
+            totalEl.innerText = '0 crowns';
+            if (confEl) confEl.innerText = '—';
+            if (samCountEl) samCountEl.innerText = '0';
+            if (dfCountEl) dfCountEl.innerText = '0';
+            if (wsCountEl) wsCountEl.innerText = '0';
+            if (samPctEl) samPctEl.innerText = '(0.0%)';
+            if (dfPctEl) dfPctEl.innerText = '(0.0%)';
+            if (wsPctEl) wsPctEl.innerText = '(0.0%)';
+            return;
+        }
+
+        let sam = 0;
+        let df = 0;
+        let ws = 0;
+        let confSum = 0;
+        for (let i = 0; i < total; i++) {
+            const props = list[i] && list[i].properties ? list[i].properties : {};
+            const key = normalizeFeatureEngineKey(props);
+            if (key === 'sam3') sam++;
+            else if (key === 'deepforest_2.1') df++;
+            else ws++;
+            confSum += getConfidencePct(props);
+        }
+
+        const samPct = (sam / total) * 100;
+        const dfPct = (df / total) * 100;
+        const wsPct = (ws / total) * 100;
+        const meanConf = confSum / total;
+
+        totalEl.innerText = `${total.toLocaleString()} crowns`;
+        if (confEl) confEl.innerText = `${meanConf.toFixed(1)}%`;
+        if (samCountEl) samCountEl.innerText = sam.toLocaleString();
+        if (dfCountEl) dfCountEl.innerText = df.toLocaleString();
+        if (wsCountEl) wsCountEl.innerText = ws.toLocaleString();
+        if (samPctEl) samPctEl.innerText = `(${samPct.toFixed(1)}%)`;
+        if (dfPctEl) dfPctEl.innerText = `(${dfPct.toFixed(1)}%)`;
+        if (wsPctEl) wsPctEl.innerText = `(${wsPct.toFixed(1)}%)`;
+        if (samBarEl) samBarEl.style.width = `${samPct.toFixed(2)}%`;
+        if (dfBarEl) dfBarEl.style.width = `${dfPct.toFixed(2)}%`;
+        if (wsBarEl) wsBarEl.style.width = `${wsPct.toFixed(2)}%`;
+    }
+
     function renderCanopies(geoJsonData) {
         clearExtractedLayers();
         if (geoJsonData && Array.isArray(geoJsonData.features)) {
             ensureAdjacentDistinctColors(geoJsonData.features);
+            updateStaticBreakdownCard(geoJsonData.features);
+        } else {
+            updateStaticBreakdownCard([]);
         }
 
         const rootStyle = getComputedStyle(document.documentElement);

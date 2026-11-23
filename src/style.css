@@ -149,7 +149,8 @@ body {
     gap: 4px;
 }
 
-.sidebar-tab-btn i {
+.sidebar-tab-btn i,
+.sidebar-tab-btn svg {
     width: 16px;
     height: 16px;
 }
@@ -301,9 +302,10 @@ body {
     position: relative;
 }
 
-select {
+select,
+.select-wrapper select {
     width: 100%;
-    padding: 10px 14px;
+    padding: 10px 30px 10px 14px;
     background-color: var(--bg-input);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -311,8 +313,16 @@ select {
     font-family: var(--font-body);
     font-size: 13px;
     appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: none;
     cursor: pointer;
     transition: all 0.3s ease;
+}
+
+select::-ms-expand,
+.select-wrapper select::-ms-expand {
+    display: none;
 }
 
 select:focus, select:hover {
@@ -321,14 +331,15 @@ select:focus, select:hover {
 }
 
 .select-wrapper::after {
-    content: "▼";
-    font-size: 9px;
+    content: "▾";
+    font-size: 11px;
     color: var(--text-secondary);
     position: absolute;
-    right: 14px;
+    right: 11px;
     top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
+    line-height: 1;
 }
 
 /* Sliders */
@@ -1438,4 +1449,290 @@ tbody td.coords-cell {
     background-color: rgba(217, 107, 82, 0.1);
     color: #c04c32;
     border: 1px solid rgba(217, 107, 82, 0.2);
+}
+
+/* ----------------------------------------------------
+   Mode-Aware Static Showcase UI (GitHub Pages / Static)
+   Preserves 100% of live FastAPI controls when inactive
+   ---------------------------------------------------- */
+.mode-static-only {
+    display: none !important;
+}
+
+body.static-demo-mode .mode-live-only,
+body.static-demo-mode .backend-only,
+body.static-demo-mode .sidebar-tab-btn[data-tab="detection"],
+body.static-demo-mode #tab-pane-detection,
+body.static-demo-mode #btn-remove-file {
+    display: none !important;
+}
+
+body.static-demo-mode .mode-static-only {
+    display: inline !important;
+}
+
+body.static-demo-mode p.mode-static-only,
+body.static-demo-mode div.mode-static-only,
+body.static-demo-mode section.mode-static-only {
+    display: block !important;
+}
+
+body.static-demo-mode .static-showcase-stack.mode-static-only {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+body.static-demo-mode .sidebar-tab-btn svg.mode-static-only,
+body.static-demo-mode .sidebar-tab-btn i.mode-static-only {
+    display: block !important;
+}
+
+body.static-demo-mode .sidebar-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+body.static-demo-mode .sidebar-header {
+    padding: 14px 20px 10px 20px;
+}
+
+body.static-demo-mode .sidebar-content {
+    padding: 12px 20px;
+}
+
+body.static-demo-mode .sidebar-footer {
+    padding: 12px 20px !important;
+    gap: 7px !important;
+}
+
+body.static-demo-mode .file-info {
+    padding: 7px 10px;
+    margin-top: 8px;
+    background-color: rgba(255, 255, 255, 0.72);
+}
+
+body.static-demo-mode .file-name {
+    font-size: 11.5px;
+}
+
+body.static-demo-mode .file-dims {
+    font-size: 10px;
+}
+
+/* Editorial Static Showcase Cards */
+.demo-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 9px 11px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.demo-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.demo-card-title {
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.demo-pill {
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background-color: rgba(5, 150, 105, 0.10);
+    color: #059669;
+    border: 1px solid rgba(5, 150, 105, 0.24);
+    white-space: nowrap;
+}
+
+.demo-pill-neutral {
+    background-color: rgba(44, 53, 39, 0.06);
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.demo-stacked-bar {
+    width: 100%;
+    height: 7px;
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    background-color: rgba(44, 53, 39, 0.07);
+}
+
+.demo-bar-seg {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.seg-sam3, .dot-sam3 { background-color: #059669; }
+.seg-df,   .dot-df   { background-color: #2563eb; }
+.seg-ws,   .dot-ws   { background-color: #d97706; }
+
+.demo-breakdown-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.demo-breakdown-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.demo-engine-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.demo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.demo-engine-metric {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.demo-pct {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.demo-breakdown-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-color);
+    font-size: 10.5px;
+    color: var(--text-secondary);
+}
+
+.demo-breakdown-foot strong {
+    font-family: monospace;
+    color: #059669;
+    font-weight: 700;
+}
+
+.demo-bench-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.demo-bench-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.demo-bench-sub {
+    font-size: 10px;
+    line-height: 1.35;
+    color: var(--text-secondary);
+}
+
+.demo-kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-top: 3px;
+}
+
+.demo-kpi {
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px 7px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.demo-kpi strong {
+    font-family: monospace;
+    font-size: 10.5px;
+    color: var(--text-primary);
+}
+
+.demo-topo-line {
+    font-family: monospace;
+    font-size: 9.5px;
+    color: var(--primary-hover);
+    margin-top: 2px;
+}
+
+.demo-bench-divider {
+    height: 1px;
+    background-color: var(--border-color);
+}
+
+.demo-link-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.demo-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-main);
+    color: var(--primary-hover);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.demo-link-btn:hover {
+    border-color: var(--primary);
+    background-color: var(--primary-glow);
+    color: var(--text-primary);
+}
+
+.demo-local-callout {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px dashed rgba(92, 131, 83, 0.45);
+    background-color: rgba(92, 131, 83, 0.06);
+    color: var(--text-secondary);
+    font-size: 10.5px;
+    line-height: 1.38;
+    font-weight: 500;
 }

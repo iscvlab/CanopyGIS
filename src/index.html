@@ -14,9 +14,21 @@
     <!-- Lucide Icons CDN -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
     <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3.2.0">
 </head>
 <body>
+    <script>
+        (function () {
+            var loc = window.location;
+            if (
+                loc.protocol === 'file:' ||
+                loc.hostname.endsWith('github.io') ||
+                (loc.pathname.indexOf('/src/') !== -1 && loc.port !== '5500' && loc.port !== '5501')
+            ) {
+                document.body.classList.add('static-demo-mode');
+            }
+        })();
+    </script>
     <div class="app-container">
         <!-- Sidebar Controls -->
         <aside class="sidebar">
@@ -30,14 +42,17 @@
 
             <!-- Sidebar Navigation Tabs -->
             <nav class="sidebar-tabs">
-                <button class="sidebar-tab-btn active" data-tab="data" title="Source Imagery & Data Inputs">
-                    <i data-lucide="database"></i> Data
+                <button class="sidebar-tab-btn active" data-tab="data" title="Explore Sites & Source Imagery">
+                    <i data-lucide="compass" class="mode-static-only"></i>
+                    <i data-lucide="database" class="mode-live-only"></i>
+                    <span class="mode-live-only">Data</span>
+                    <span class="mode-static-only">Explore</span>
                 </button>
-                <button class="sidebar-tab-btn" data-tab="detection" title="Detection Settings & Models">
+                <button class="sidebar-tab-btn backend-only" data-tab="detection" title="Detection Settings & Models">
                     <i data-lucide="cpu"></i> Detection
                 </button>
                 <button class="sidebar-tab-btn" data-tab="export" title="Export Extracted Datasets">
-                    <i data-lucide="upload"></i> Export
+                    <i data-lucide="download"></i> Export
                 </button>
             </nav>
 
@@ -46,12 +61,15 @@
                 <div class="tab-pane active" id="tab-pane-data">
                     <!-- Source Imagery Tab Switcher -->
                     <div class="control-section">
-                        <label class="section-label">Source Imagery</label>
-                        <div class="tab-container-selector">
+                        <label class="section-label">
+                            <span class="mode-live-only">Source Imagery</span>
+                            <span class="mode-static-only">Interactive Result Explorer</span>
+                        </label>
+                        <div class="tab-container-selector backend-only">
                             <button id="tab-btn-satellite" class="tab-btn active" type="button" title="GEO mode: Google VHR extent">Map extent (GEO)</button>
                             <button id="tab-btn-upload" class="tab-btn" type="button" title="Upload GeoTIFF (GEO) or plain JPG (IMAGE-ONLY)">Upload file</button>
                         </div>
-                        <p class="input-label-small" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
+                        <p class="input-label-small backend-only" style="margin-top: 8px; line-height: 1.35; color: var(--text-muted);">
                             CanopyGIS v1.8.1 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Compact Geodesic Watershed). <strong>GEO</strong> = real map coords · <strong>IMAGE-ONLY</strong> = plain JPG/PNG detection QA.
                         </p>
                         
@@ -60,7 +78,7 @@
                             <div style="margin-bottom: 10px;">
                                 <span class="input-label-small">Site Preset</span>
                                 <div class="select-wrapper" style="margin-top: 4px;">
-                                    <select id="site-preset-select" style="padding: 6px 26px 6px 10px; height: 34px; font-size: 11px;">
+                                    <select id="site-preset-select" style="padding: 6px 28px 6px 10px; height: 34px; font-size: 11px;">
                                         <option value="onnut" selected>On Nut Waste Center — 229.4 Acres (928,176 sqm)</option>
                                         <option value="nongkhaem">Nong Khaem Center — 150.2 Acres (607,888 sqm)</option>
                                         <option value="ramintra">Ramintra Sports Park — 23.4 Acres (94,544 sqm)</option>
@@ -68,8 +86,75 @@
                                 </div>
                             </div>
 
+                            <!-- Static Showcase Cards (Visible ONLY in body.static-demo-mode) -->
+                            <div class="static-showcase-stack mode-static-only">
+                                <!-- Card A: Live Site Breakdown -->
+                                <section id="demo-breakdown-card" class="demo-card" aria-label="Live Site Breakdown">
+                                    <div class="demo-card-header">
+                                        <span class="demo-card-title">Live Site Breakdown</span>
+                                        <span id="demo-breakdown-total" class="demo-pill">Loading…</span>
+                                    </div>
+                                    <div class="demo-stacked-bar" aria-hidden="true">
+                                        <span id="demo-bar-sam3" class="demo-bar-seg seg-sam3" style="width: 27%;"></span>
+                                        <span id="demo-bar-df" class="demo-bar-seg seg-df" style="width: 4%;"></span>
+                                        <span id="demo-bar-ws" class="demo-bar-seg seg-ws" style="width: 69%;"></span>
+                                    </div>
+                                    <div class="demo-breakdown-rows">
+                                        <div class="demo-breakdown-row">
+                                            <span class="demo-engine-name"><span class="demo-dot dot-sam3"></span>SAM 3</span>
+                                            <span class="demo-engine-metric"><strong id="demo-count-sam3">—</strong> <span id="demo-pct-sam3" class="demo-pct"></span></span>
+                                        </div>
+                                        <div class="demo-breakdown-row">
+                                            <span class="demo-engine-name"><span class="demo-dot dot-df"></span>DeepForest 2.1</span>
+                                            <span class="demo-engine-metric"><strong id="demo-count-df">—</strong> <span id="demo-pct-df" class="demo-pct"></span></span>
+                                        </div>
+                                        <div class="demo-breakdown-row">
+                                            <span class="demo-engine-name"><span class="demo-dot dot-ws"></span>Watershed</span>
+                                            <span class="demo-engine-metric"><strong id="demo-count-ws">—</strong> <span id="demo-pct-ws" class="demo-pct"></span></span>
+                                        </div>
+                                    </div>
+                                    <div class="demo-breakdown-foot">
+                                        <span>Mean Separation Confidence</span>
+                                        <strong id="demo-breakdown-conf">—</strong>
+                                    </div>
+                                </section>
+
+                                <!-- Card B: MillionTrees v0.25 Benchmark Receipt -->
+                                <section id="demo-benchmark-card" class="demo-card" aria-label="MillionTrees v0.25 Benchmark Receipt">
+                                    <div class="demo-card-header">
+                                        <span class="demo-card-title">MillionTrees v0.25 Receipt</span>
+                                        <span class="demo-pill demo-pill-neutral">v1.8.1</span>
+                                    </div>
+                                    <div class="demo-bench-block">
+                                        <div class="demo-bench-label">Benchmark (Pure Zero-Shot Planar)</div>
+                                        <div class="demo-bench-sub">SAM 3 + Watershed + 3-Pass RAG · 0 forestry FT</div>
+                                        <div class="demo-kpi-grid">
+                                            <div class="demo-kpi"><span>OOD F1</span><strong>0.744</strong></div>
+                                            <div class="demo-kpi"><span>MaskAwareP</span><strong>0.936 (1st)</strong></div>
+                                            <div class="demo-kpi"><span>WD F1</span><strong>0.604</strong></div>
+                                            <div class="demo-kpi"><span>TLS-59 F1</span><strong>0.627</strong></div>
+                                        </div>
+                                        <div class="demo-topo-line">0 overlap px · Euler = 1 · 5,815 tile evals</div>
+                                    </div>
+                                    <div class="demo-bench-divider"></div>
+                                    <div class="demo-bench-block">
+                                        <div class="demo-bench-label">Web Portal Showcase</div>
+                                        <div class="demo-bench-sub">Hybrid SAM 3 + DeepForest 2.1 + Watershed across 3 precomputed Bangkok sites (&lt; 30 ms filters + GeoJSON/CSV export).</div>
+                                    </div>
+                                    <div class="demo-link-row">
+                                        <a href="https://github.com/napattan/CanopyGIS" target="_blank" rel="noopener noreferrer" class="demo-link-btn">GitHub (MIT) ↗</a>
+                                        <a href="https://github.com/weecology/MillionTrees/pull/184" target="_blank" rel="noopener noreferrer" class="demo-link-btn">MillionTrees PR #184 ↗</a>
+                                    </div>
+                                </section>
+
+                                <!-- Compact Local-Run Callout -->
+                                <div id="demo-local-callout" class="demo-local-callout">
+                                    Run locally with FastAPI + CUDA to scan custom AOIs or GeoTIFFs.
+                                </div>
+                            </div>
+
                             <!-- Coordinate Format Selector -->
-                            <div style="margin-bottom: 10px;">
+                            <div class="backend-only" style="margin-bottom: 10px;">
                                 <span class="input-label-small">Coordinate Format</span>
                                 <div class="tab-container-selector" style="margin-bottom: 0; margin-top: 4px;">
                                     <button id="coord-format-latlng" class="tab-btn active" type="button">Lat / Lng</button>
@@ -78,7 +163,7 @@
                             </div>
 
                             <!-- Lat/Lng Inputs -->
-                            <div id="latlng-inputs-panel">
+                            <div id="latlng-inputs-panel" class="backend-only">
                                 <div class="input-row">
                                     <div class="input-group">
                                         <span class="input-label-small">Latitude</span>
@@ -92,7 +177,7 @@
                             </div>
 
                             <!-- UTM (N/E) Inputs -->
-                            <div id="utm-inputs-panel" class="hidden">
+                            <div id="utm-inputs-panel" class="hidden backend-only">
                                 <div class="input-row" style="margin-bottom: 8px;">
                                     <div class="input-group">
                                         <span class="input-label-small">Zone</span>
@@ -119,7 +204,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="input-row" style="margin-top: 8px;">
+                            <div class="input-row backend-only" style="margin-top: 8px;">
                                 <div class="input-group">
                                     <span class="input-label-small">Width (m)</span>
                                     <input type="number" id="input-width" class="text-input" value="250" min="50" max="2000">
@@ -129,7 +214,7 @@
                                     <input type="number" id="input-length" class="text-input" value="250" min="50" max="2000">
                                 </div>
                             </div>
-                            <div style="margin-top: 8px;">
+                            <div class="backend-only" style="margin-top: 8px;">
                                 <span class="input-label-small">Resolution / Zoom</span>
                                 <div class="select-wrapper" style="margin-top: 4px;">
                                     <select id="satellite-zoom-select" style="padding: 8px 12px; height: 32px; font-size: 12px;">
@@ -141,13 +226,13 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="btn-grid" style="margin-top: 10px;">
+                            <div class="btn-grid backend-only" style="margin-top: 10px;">
                                 <button id="btn-draw-bbox" class="btn btn-secondary btn-half" type="button">Draw Polygon</button>
                                 <button id="btn-fetch-satellite" class="btn btn-primary btn-half" type="button">Fetch Data</button>
                             </div>
                         </div>
 
-                        <div id="upload-panel" class="hidden">
+                        <div id="upload-panel" class="hidden backend-only">
                             <div id="drop-zone" class="drop-zone">
                                 <i data-lucide="upload-cloud" class="upload-icon"></i>
                                 <p class="upload-text">GeoTIFF (map-ready) or plain RGB (detect-only)</p>
@@ -165,13 +250,13 @@
                                 <span id="file-name" class="file-name">filename.tif</span>
                                 <span id="file-dims" class="file-dims">0 x 0 px</span>
                             </div>
-                            <button id="btn-remove-file" class="btn-icon text-danger-hover">
+                            <button id="btn-remove-file" class="btn-icon text-danger-hover backend-only">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </div>
 
                         <!-- Pipeline mode banner (GEO vs IMAGE-ONLY) -->
-                        <div id="pipeline-mode-banner" class="hidden" style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.45; border: 1px solid var(--border-color);">
+                        <div id="pipeline-mode-banner" class="hidden backend-only" style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.45; border: 1px solid var(--border-color);">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                                 <span id="pipeline-mode-badge" style="font-weight: 700; font-size: 10px; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; text-transform: uppercase;"></span>
                                 <span id="pipeline-mode-title" style="font-weight: 600; color: var(--text-primary);"></span>
@@ -359,6 +444,9 @@
                                 <span id="btn-export-geojson-label">Export GeoJSON Boundaries</span>
                             </button>
                         </div>
+                        <p class="input-label-small mode-static-only" style="margin-top: 10px; line-height: 1.4; color: var(--text-muted);">
+                            Client-side exports include all currently filtered crowns (respects Live Post-Filters and Source Engine pills).
+                        </p>
                     </div>
                 </div>
             </div>
@@ -370,11 +458,11 @@
                 </div>
                 <div id="token-status-panel" style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border-color); padding-top: 10px; width: 100%; font-size: 11px; color: var(--text-secondary);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Google VHR Satellite:</span>
+                        <span id="footer-label-source">Google VHR Satellite:</span>
                         <span id="token-google" class="token-status active">Ready (z21–22)</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Hybrid AI (SAM 3 + DeepForest):</span>
+                        <span id="footer-label-engine">Hybrid AI (SAM 3 + DeepForest):</span>
                         <span id="model-sam" class="token-status checking">Checking...</span>
                     </div>
                 </div>
@@ -668,6 +756,6 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Main Script -->
-    <script src="script.js?v=3.1.0"></script>
+    <script src="script.js?v=3.2.0"></script>
 </body>
 </html>
