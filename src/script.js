@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------------------------------------
     // 1. Initialize Map & Basemaps with Pixel Zoom
     // ----------------------------------------------------
-    // Ramintra Sports Park, Bang Khen, Bangkok — primary thesis site
+    // Ramintra Sports Park, Bang Khen, Bangkok — Archived Urban Park Benchmark
     const defaultCenter = [13.878551, 100.619507];
     const map = L.map('map', {
         center: defaultCenter,
@@ -651,35 +651,82 @@ document.addEventListener('DOMContentLoaded', () => {
         ? window.location.origin
         : 'http://127.0.0.1:8000';
 
+    const isKnownStaticHost = (
+        typeof window !== 'undefined' &&
+        window.location &&
+        (
+            window.location.protocol === 'file:' ||
+            window.location.hostname.endsWith('github.io') ||
+            (
+                window.location.pathname.includes('/src/') &&
+                window.location.port !== '5500' &&
+                window.location.port !== '5501'
+            )
+        )
+    );
+    let isStaticDemoMode = isKnownStaticHost;
+    let sessionLoadSeq = 0;
+
+    function resolveUploadAssetUrl(rawUrl) {
+        if (!rawUrl) return '';
+        if (isStaticDemoMode && rawUrl.startsWith('/static_uploads/')) {
+            return 'uploads/' + rawUrl.slice('/static_uploads/'.length);
+        }
+        if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('uploads/')) {
+            return rawUrl;
+        }
+        return `${BACKEND_URL}${rawUrl}`;
+    }
+
+    function setStaticDemoStatusUI() {
+        isStaticDemoMode = true;
+        if (statusIndicator) statusIndicator.className = 'status-indicator online';
+        if (systemStatusEl) systemStatusEl.innerText = 'Interactive Demo Mode (v1.8.1)';
+        const samEl = document.getElementById('model-sam');
+        if (samEl) {
+            samEl.className = 'token-status active';
+            samEl.innerText = 'SAM3 + DF Ready';
+            samEl.title = 'Pre-computed Bangkok VHR crown sessions loaded in static Interactive Demo Mode (v1.8.1)';
+        }
+    }
+
     // ----------------------------------------------------
     // 4. Connect to Backend & Check Device Status
     // ----------------------------------------------------
     async function checkBackendStatus() {
+        if (isStaticDemoMode) {
+            setStaticDemoStatusUI();
+            return;
+        }
         try {
             const response = await fetch(`${BACKEND_URL}/health/status`, {
                 headers: { 'Accept': 'application/json' }
             });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
             const data = await response.json();
             if (data.status === 'running') {
+                isStaticDemoMode = false;
                 statusIndicator.className = 'status-indicator online';
                 systemStatusEl.innerText = `Backend Connected (${data.device.toUpperCase()})`;
                 checkSamModelStatus();
+                return;
             }
+            throw new Error('Unexpected backend status response');
         } catch (error) {
-            const samEl = document.getElementById('model-sam');
-            if (window.location.hostname.endsWith('github.io')) {
-                statusIndicator.className = 'status-indicator online';
-                systemStatusEl.innerText = 'Interactive Demo Mode (V1.0)';
-                if (samEl) {
-                    samEl.className = 'token-status active';
-                    samEl.innerText = 'SAM3 + DF Ready';
+            try {
+                const staticProbe = await fetch('uploads/last_roi_session.json', { method: 'HEAD' });
+                if (staticProbe.ok) {
+                    setStaticDemoStatusUI();
+                    return;
                 }
-            } else {
-                statusIndicator.className = 'status-indicator offline';
-                systemStatusEl.innerText = 'Backend Offline';
-                console.error('Failed to connect to FastAPI backend:', error);
-                if (samEl) { samEl.className = 'token-status error'; samEl.innerText = 'Offline'; }
-            }
+            } catch (_) {}
+            const samEl = document.getElementById('model-sam');
+            statusIndicator.className = 'status-indicator offline';
+            systemStatusEl.innerText = 'Backend Offline';
+            console.error('Failed to connect to FastAPI backend:', error);
+            if (samEl) { samEl.className = 'token-status error'; samEl.innerText = 'Offline'; }
         }
     }
 
@@ -706,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 samEl.className = 'token-status checking';
                 samEl.innerText = 'RGB Fallback';
-                samEl.title = h.message || 'SAM 3 unavailable; CanopyGIS V1.0 running with RGB + Compact Geodesic Watershed support';
+                samEl.title = h.message || 'SAM 3 unavailable; CanopyGIS v1.8.1 running with RGB + Compact Geodesic Watershed support';
             }
         } catch (e) {
             samEl.className = 'token-status error';
@@ -1270,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     presetMap[activePreset] = payload;
                     localStorage.setItem(STORAGE_KEY_PRESET_MAP, JSON.stringify(presetMap));
                 }
-                if (syncBackend) {
+                if (syncBackend && !isStaticDemoMode) {
                     const fd = new FormData();
                     if (activePreset) fd.append('site_preset', activePreset);
                     fd.append('center_lat', payload.centerLat);
@@ -1349,6 +1396,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function applySessionMetadataToMap(metadata, fitMap = true) {
         if (!metadata) return;
+        const loadSeq = ++sessionLoadSeq;
         const resolvedPreset = metadata.site_preset || detectPresetFromCoords(metadata.center_lat, metadata.center_lon);
         if (sitePresetSelect && resolvedPreset && SITE_PRESETS[resolvedPreset]) {
             sitePresetSelect.value = resolvedPreset;
@@ -1417,10 +1465,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (imageOverlayLayer && map.hasLayer(imageOverlayLayer)) {
                     map.removeLayer(imageOverlayLayer);
                 }
-                const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.pathname.includes('/src/');
-                const imgUrl = (isStaticHost && metadata.preview_url.startsWith('/static_uploads/'))
-                    ? ('uploads/' + metadata.preview_url.slice('/static_uploads/'.length))
-                    : `${BACKEND_URL}${metadata.preview_url}`;
+                const imgUrl = resolveUploadAssetUrl(metadata.preview_url);
                 imageOverlayLayer = L.imageOverlay(imgUrl, bounds, {
                     opacity: 0.9,
                     interactive: false
@@ -1436,14 +1481,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (metadata.result_geojson_url) {
+            if (canopyCountBadge && (!extractedGeoJson || !extractedGeoJson.features?.length)) {
+                canopyCountBadge.innerText = 'Loading demo crowns…';
+            }
             try {
-                let gjRes = await fetch(`${BACKEND_URL}${metadata.result_geojson_url}`);
-                if (!gjRes.ok && metadata.result_geojson_url.startsWith('/static_uploads/')) {
+                const primaryUrl = resolveUploadAssetUrl(metadata.result_geojson_url);
+                let gjRes = await fetch(primaryUrl);
+                if (!gjRes.ok && !isStaticDemoMode && metadata.result_geojson_url.startsWith('/static_uploads/')) {
                     const relUrl = 'uploads/' + metadata.result_geojson_url.slice('/static_uploads/'.length);
                     gjRes = await fetch(relUrl);
                 }
+                if (loadSeq !== sessionLoadSeq) return;
                 if (gjRes.ok) {
                     extractedGeoJson = await gjRes.json();
+                    if (loadSeq !== sessionLoadSeq) return;
                     renderCanopies(extractedGeoJson);
                     btnExportCsv.disabled = false;
                     btnExportGeoJson.disabled = false;
@@ -1461,33 +1512,53 @@ document.addEventListener('DOMContentLoaded', () => {
         ramintra: 'uploads/vhr_1793704454.json'
     };
 
-    async function restoreLatestBackendSession() {
-        try {
-            const res = await fetch(`${BACKEND_URL}/latest_session`, {
-                headers: { 'Accept': 'application/json' }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.has_session && data.metadata) {
-                    const metadata = data.metadata;
-                    await applySessionMetadataToMap(metadata, true);
-                    addLog('Restored saved site (' + (metadata.site_preset || 'custom') + '), search polygon (' + (currentRoiPolygon ? currentRoiPolygon.length + ' vertices' : 'BBox') + ')' + (metadata.filename ? ' & satellite raster (' + metadata.filename + ')' : '') + '.');
-                    return;
-                }
-            }
-        } catch (err) {
-            console.warn('Backend /latest_session unavailable, trying static demo session:', err);
+    async function loadStaticDemoSession(presetKey = null) {
+        const candidates = [];
+        if (presetKey && STATIC_PRESET_SESSIONS[presetKey]) {
+            candidates.push(STATIC_PRESET_SESSIONS[presetKey]);
+        } else {
+            candidates.push('uploads/last_roi_session.json');
+            candidates.push(STATIC_PRESET_SESSIONS.onnut);
+            candidates.push(STATIC_PRESET_SESSIONS.ramintra);
         }
-        try {
-            const staticRes = await fetch('uploads/last_roi_session.json');
-            if (staticRes.ok) {
-                const metadata = await staticRes.json();
-                if (metadata && (metadata.center_lat !== undefined || metadata.result_geojson_url)) {
-                    await applySessionMetadataToMap(metadata, true);
-                    addLog('Loaded pre-computed interactive demo session (' + (metadata.site_preset || 'onnut') + ').');
+        for (const url of candidates) {
+            try {
+                const staticRes = await fetch(url);
+                if (staticRes.ok) {
+                    const metadata = await staticRes.json();
+                    if (metadata && (metadata.center_lat !== undefined || metadata.result_geojson_url)) {
+                        await applySessionMetadataToMap(metadata, true);
+                        addLog('Loaded pre-computed interactive demo session (' + (metadata.site_preset || presetKey || 'onnut') + ').');
+                        return true;
+                    }
                 }
+            } catch (_) {}
+        }
+        return false;
+    }
+
+    async function restoreLatestBackendSession() {
+        if (!isStaticDemoMode) {
+            try {
+                const res = await fetch(`${BACKEND_URL}/latest_session`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.has_session && data.metadata) {
+                        const metadata = data.metadata;
+                        await applySessionMetadataToMap(metadata, true);
+                        addLog('Restored saved site (' + (metadata.site_preset || 'custom') + '), search polygon (' + (currentRoiPolygon ? currentRoiPolygon.length + ' vertices' : 'BBox') + ')' + (metadata.filename ? ' & satellite raster (' + metadata.filename + ')' : '') + '.');
+                        return;
+                    }
+                } else {
+                    setStaticDemoStatusUI();
+                }
+            } catch (_) {
+                setStaticDemoStatusUI();
             }
-        } catch (_) {}
+        }
+        await loadStaticDemoSession();
     }
 
     if (sitePresetSelect) {
@@ -1518,32 +1589,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     : preset.roiPolygon
             };
 
-            applySavedBoundary(boundaryToApply, true, true);
+            applySavedBoundary(boundaryToApply, true, !isStaticDemoMode);
             addLog(`Selected site preset: ${preset.name} (${boundaryToApply.centerLat.toFixed(6)}, ${boundaryToApply.centerLon.toFixed(6)} · ${boundaryToApply.width}×${boundaryToApply.length} m · ${boundaryToApply.roiPolygon ? boundaryToApply.roiPolygon.length + ' polygon vertices' : 'BBox'})`);
 
             let loadedSession = false;
-            try {
-                const res = await fetch(`${BACKEND_URL}/latest_session?site_preset=${encodeURIComponent(key)}`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.has_session && data.metadata) {
-                        await applySessionMetadataToMap(data.metadata, true);
-                        addLog(`Loaded cached VHR raster (${data.metadata.filename}) for preset ${key.toUpperCase()}.`);
-                        loadedSession = true;
-                    }
-                }
-            } catch (_) {}
-            if (!loadedSession && STATIC_PRESET_SESSIONS[key]) {
+            if (!isStaticDemoMode) {
                 try {
-                    const stRes = await fetch(STATIC_PRESET_SESSIONS[key]);
-                    if (stRes.ok) {
-                        const stMeta = await stRes.json();
-                        await applySessionMetadataToMap(stMeta, true);
-                        addLog(`Loaded pre-computed demo session (${stMeta.filename}) for preset ${key.toUpperCase()}.`);
+                    const res = await fetch(`${BACKEND_URL}/latest_session?site_preset=${encodeURIComponent(key)}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.has_session && data.metadata) {
+                            await applySessionMetadataToMap(data.metadata, true);
+                            addLog(`Loaded cached VHR raster (${data.metadata.filename}) for preset ${key.toUpperCase()}.`);
+                            loadedSession = true;
+                        }
+                    } else {
+                        setStaticDemoStatusUI();
                     }
-                } catch (_) {}
+                } catch (_) {
+                    setStaticDemoStatusUI();
+                }
+            }
+            if (!loadedSession && STATIC_PRESET_SESSIONS[key]) {
+                await loadStaticDemoSession(key);
             }
         });
     }
@@ -1567,6 +1637,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Fetch Satellite Imagery
     // ----------------------------------------------------
     btnFetchSatellite.addEventListener('click', async () => {
+        if (isStaticDemoMode) {
+            addLog('Static Interactive Demo Mode (v1.8.1): live VHR tile fetching requires the local FastAPI backend. Switch Site Presets to inspect pre-computed Bangkok sessions.');
+            return;
+        }
         if (isDrawingActive && drawnVertices.length >= 3) {
             finishPolygonDrawing();
         }
@@ -1662,10 +1736,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 if (metadata.preview_url) {
-                    const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.pathname.includes('/src/');
-                const imgUrl = (isStaticHost && metadata.preview_url.startsWith('/static_uploads/'))
-                    ? ('uploads/' + metadata.preview_url.slice('/static_uploads/'.length))
-                    : `${BACKEND_URL}${metadata.preview_url}`;
+                    const imgUrl = resolveUploadAssetUrl(metadata.preview_url);
                     imageOverlayLayer = L.imageOverlay(imgUrl, bounds, {
                         opacity: 0.9,
                         interactive: false
@@ -1887,10 +1958,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (metadata.preview_url) {
-                    const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.pathname.includes('/src/');
-                const imgUrl = (isStaticHost && metadata.preview_url.startsWith('/static_uploads/'))
-                    ? ('uploads/' + metadata.preview_url.slice('/static_uploads/'.length))
-                    : `${BACKEND_URL}${metadata.preview_url}`;
+                    const imgUrl = resolveUploadAssetUrl(metadata.preview_url);
                     imageOverlayLayer = L.imageOverlay(imgUrl, bounds, {
                         opacity: 0.9,
                         interactive: false
@@ -1919,6 +1987,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 9. Run Tree Canopy Segmentation
     // ----------------------------------------------------
     btnExtract.addEventListener('click', async () => {
+        if (isStaticDemoMode) {
+            addLog('Static Interactive Demo Mode (v1.8.1): live GPU extraction requires the local FastAPI backend. Use Live Post-Filters (<30ms) or Site Presets to explore pre-computed crowns.');
+            return;
+        }
         if (!uploadedFilePath) return;
 
         btnExtract.disabled = true;
@@ -1947,7 +2019,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sam3PromptVal = promptInput && promptInput.value.trim() ? promptInput.value.trim() : 'tree';
 
         addLog('Initializing canopy extraction request...');
-        addLog('Engine: CanopyGIS V1.0 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Global Compact Geodesic Watershed)');
+        addLog('Engine: CanopyGIS v1.8.1 Hybrid Tri-Engine (SAM 3 + DeepForest 2.1 + Global Compact Geodesic Watershed)');
         addLog(`SAM 3 Prompt: "${sam3PromptVal}"`);
         addLog(`SAM 3 Instance Threshold: ${confSlider.value}`);
         addLog(`RGB Coverage Threshold: ${clampedCoverage}`);
@@ -2262,7 +2334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (raw === 'watershed_forest_crown' || raw.includes('watershed')) {
             return 'Compact Geodesic Watershed (watershed_forest_crown)';
         }
-        return sourceModel || geometryQuality || 'CanopyGIS V1.0 Hybrid';
+        return sourceModel || geometryQuality || 'CanopyGIS v1.8.1 Hybrid';
     }
 
     function clearExtractedLayers() {
@@ -2547,6 +2619,7 @@ document.addEventListener('DOMContentLoaded', () => {
             canopyCountBadge.innerText = `${features.length.toLocaleString()} crowns · ${meanConf.toFixed(1)}% avg confidence`;
         }
         canopyTableBody.innerHTML = '';
+        const tableFrag = document.createDocumentFragment();
 
         features.forEach(feat => {
             const props = feat.properties;
@@ -2596,8 +2669,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectTree(props.tree_id, true);
             });
 
-            canopyTableBody.appendChild(row);
+            tableFrag.appendChild(row);
         });
+        canopyTableBody.appendChild(tableFrag);
 
         // Sync map layer visibilities with currently filtered elements
         updateMapLayers(features);
@@ -2765,7 +2839,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const imgUrl = `${BACKEND_URL}${uploadedMetadata.preview_url}`;
+        const imgUrl = resolveUploadAssetUrl(uploadedMetadata.preview_url);
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.src = imgUrl;

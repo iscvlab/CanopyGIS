@@ -8,7 +8,7 @@
 [![Upstream](https://img.shields.io/badge/Upstream-Weecology%2FDeepForest_%231447_%26_%231440-D97706?style=flat-square)](https://github.com/weecology/DeepForest/issues/1447#issuecomment-6677900572)
 [![Lab](https://img.shields.io/badge/Lab-ISCV_%7C_Isocurve_Research_Lab_%28%40iscvlab%29-121417?style=flat-square&logo=github&logoColor=white)](https://github.com/iscvlab)
 
-**CanopyGIS** (`SAE-LIM` Sub-Engine `[D]`: Geo-AI Canopy Segmentation V1.0) is an open-source computational landscape architecture and urban forestry platform developed for Bachelor's thesis research. It extracts continuous woody canopy coverage, individual tree-crown polygons, treetop centroids, and allometric attributes from georeferenced satellite/aerial imagery (`Google VHR Satellite` `Zoom 19–22` at `3.6–29.6 cm/px` or uploaded GeoTIFF/RGB files) without requiring airborne LiDAR—combining **`SAM 3` (`SamGeo3`)**, **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`)**, and **Marker-Controlled Compact Geodesic Watershed with 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing**.
+**CanopyGIS** (`SAE-LIM` Sub-Engine `[D]`: Geo-AI Canopy Segmentation `v1.8.1`) is an open-source urban forestry and geospatial canopy-analysis platform. It extracts continuous woody canopy coverage, individual tree-crown polygons, treetop centroids, and allometric attributes from georeferenced satellite/aerial imagery (`Google VHR Satellite` `Zoom 19–22` at `3.6–29.6 cm/px` or uploaded GeoTIFF/RGB files) without requiring airborne LiDAR—pairing a standalone **pure zero-shot** planar evaluator (**`SAM 3` (`facebook/sam3`) + Marker-Controlled Compact Geodesic Watershed + 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing** in [`src/canopygis_v18_eval.py`](src/canopygis_v18_eval.py)) with an interactive web portal ([`src/canopy_v2.py`](src/canopy_v2.py)) that adds optional **`Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`)** nadir treetop seeding.
 
 | Full Hybrid Closed-Canopy View (`On Nut` `229.4 Acres (928,176 sqm)` · `2,987` Crowns) | `Weecology DeepForest 2.1.0` Priority-1 Treetop Anchor Seeds (`108` Core Seeds) |
 | :---: | :---: |
@@ -18,8 +18,8 @@
 
 ## ⚡ TL;DR — Capabilities & Performance at a Glance
 
-- **Hybrid Tri-Engine Architecture (`SAM 3 + DeepForest 2.1.0 + Watershed + RAG`)**: Uses `SAM 3` for isolated standalone crowns (`Pass 1` + `Step 2A/2B/2C`), `Weecology DeepForest 2.1.0` (`RetinaNet-ResNet50-FPN`) for nadir treetop seed detection across tiled rasters (`1,050–8,698` raw candidate boxes per site), and 3-Pass `RAG` Geodesic Watershed to partition dense tropical closed-canopy stands.
-- **Zero-Install Pre-Loaded Interactive Demo**: Ships with pre-computed GeoJSON sessions for **`On Nut Waste Center` (`ON`, `229.4 Acres (928,176 sqm)`, `2,987` crowns)** and **`Nong Khaem Waste Center` (`NK`, `150.2 Acres (607,888 sqm)`, `2,110` crowns)** so anyone launching the web UI (or visiting the **[Live GitHub Pages Demo](https://napattan.github.io/CanopyGIS/)**) can immediately inspect crowns, toggle `SAM 3` / `DeepForest` / `Watershed` layers, and test `< 30 ms` real-time physical filter sliders without waiting for GPU inference.
+- **Two-Track Architecture (Pure Zero-Shot Benchmark vs. Interactive Web Portal)**: The standalone `v1.8.1` evaluator ([`src/canopygis_v18_eval.py`](src/canopygis_v18_eval.py)) runs **pure zero-shot `SAM 3` + Compact Geodesic Watershed + 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing** (`0` forestry training hours, no DeepForest dependency) for `MillionTrees v0.25`. The interactive web portal ([`src/canopy_v2.py`](src/canopy_v2.py)) additionally supports optional **`Weecology DeepForest 2.1.0`** (`RetinaNet-ResNet50-FPN`) nadir treetop seed anchoring across tiled rasters (`1,050–8,698` raw candidate boxes per site).
+- **Zero-Install Pre-Loaded Interactive Demo**: Ships with pre-computed GeoJSON sessions for **`On Nut Waste Center` (`ON`, `229.4 Acres (928,176 sqm)`, `2,987` crowns)**, **`Nong Khaem Waste Center` (`NK`, `150.2 Acres (607,888 sqm)`, `2,110` crowns)**, and **`Ramintra Sports Park` (`23.4 Acres (94,544 sqm)`, `1,462` crowns)** so anyone launching the web UI (or visiting the **[Live GitHub Pages Demo](https://napattan.github.io/CanopyGIS/)**) immediately sees segmented crowns on initial load, toggles `SAM 3` / `DeepForest` / `Watershed` layers, and drags `< 30 ms` real-time physical filter sliders without waiting for GPU inference.
 - **3-Pass `RAG` Small-Basin Coalescing**: Eliminates `-100%` of `< 4.0 m²` over-segmented watershed micro-shards (`1,568 → 0` on `On Nut`) and `-99.35%` of `< 8.0 m²` shoulder shards (`3,363 → 22`).
 - **Vectorized Shapely 2.0 Post-Processing**: Profiling `CanopyGIS` on multi-thousand-crown rasters surfaced and resolved key geometry construction and distance bottlenecks (`74×–421×` speedup on `format_boxes`, `match_points`, and `convert_to_sv_format`, contributed upstream to [`Weecology/DeepForest#1447`](https://github.com/weecology/DeepForest/issues/1447) and [`#1440`](https://github.com/weecology/DeepForest/issues/1440)).
 
@@ -27,9 +27,9 @@
 
 | Evaluation Dimension | Workflow / Engine Configuration | Visual Comparison Bar | Measured Result & Delta vs. Baseline |
 | :--- | :--- | :--- | :--- |
-| **1. Micro-Shard Elimination (`< 4 m²` Noise Reduction) ↑** | **CanopyGIS V1.0 (3-Pass RAG Coalescing)**<br>Unmerged Classical Watershed Baseline | `████████████████████` **`100.0% Clean`**<br>`░░░░░░░░░░░░░░░░░░░░` `0.0% (1,568 Shards)` | **`0` Micro-Shards** (`1,568 → 0` on `On Nut`)<br>`1,568` Over-Segmented Shards |
+| **1. Micro-Shard Elimination (`< 4 m²` Noise Reduction) ↑** | **CanopyGIS v1.8.1 (3-Pass RAG Coalescing)**<br>Unmerged Classical Watershed Baseline | `████████████████████` **`100.0% Clean`**<br>`░░░░░░░░░░░░░░░░░░░░` `0.0% (1,568 Shards)` | **`0` Micro-Shards** (`1,568 → 0` on `On Nut`)<br>`1,568` Over-Segmented Shards |
 | **2. Interactive Filter Latency (`2,987` Crowns) ↓**<br>*(Lower = Better)* | **Client-Side Coupled Physical Sliders**<br>Server-Side Re-Segmentation Loop | `█░░░░░░░░░░░░░░░░░░░` **`< 30 ms`**<br>`████████████████████` `194,300 ms` | **`< 30 ms` Real-Time UI** (`6,400×` faster)<br>`194.3 s` Full Pipeline Re-Run |
-| **3. Multi-Site Crown Verification Confidence ↑** | **Nong Khaem (`150.2 Acres (607,888 sqm)`, `2,110` Crowns)**<br>**Ramintra Park (`23.4 Acres (94,544 sqm)`, `1,432` Crowns)**<br>**On Nut (`229.4 Acres (928,176 sqm)`, `2,987` Crowns)** | `███████████████░░░░░` **`73.4% Mean Conf`**<br>`██████████████░░░░░░` **`71.1% Mean Conf`**<br>`██████████████░░░░░░` **`68.4% Mean Conf`** | **100% Verified** across 23 Visual Audit Regions<br>Zoom 21 (`7.2 cm/px` VHR)<br>Zoom 19 (`29.6 cm/px` Regional Campus) |
+| **3. Multi-Site Crown Verification Confidence ↑** | **Nong Khaem (`150.2 Acres (607,888 sqm)`, `2,110` Crowns)**<br>**Ramintra Park (`23.4 Acres (94,544 sqm)`, `1,462` Crowns)**<br>**On Nut (`229.4 Acres (928,176 sqm)`, `2,987` Crowns)** | `███████████████░░░░░` **`73.4% Mean Conf`**<br>`██████████████░░░░░░` **`70.6% Mean Conf`**<br>`██████████████░░░░░░` **`68.4% Mean Conf`** | **100% Verified** across 23 Visual Audit Regions<br>Zoom 20 (`14.5 cm/px` VHR)<br>Zoom 19 (`29.6 cm/px` Regional Campus) |
 
 ---
 
@@ -94,14 +94,14 @@ flowchart LR
     style Step3 fill:#f8fafc,stroke:#94a3b8,color:#0f172a
 ```
 
-### 1.1 Default Thesis Site & 1-Click Official Boundary Site Presets
-The web portal opens directly centered on the primary thesis site and supports 1-click switching with automatic per-site polygon boundary and session restoration (`canopy_roi_by_site_v1` + `GET /latest_session?site_preset=...`, supporting both short and canonical preset keys) across all thesis and twin waste-hub study areas:
+### 1.1 Pre-Loaded Bangkok Benchmark Sites & 1-Click Official Boundary Site Presets
+The web portal auto-loads the pre-computed `On Nut` campus session on startup (both in FastAPI mode and static GitHub Pages Interactive Demo Mode) and supports 1-click switching with automatic per-site polygon boundary and session restoration (`canopygis_preset_boundaries_v1` + `GET /latest_session?site_preset=...` or static `src/uploads/*.json` fallback, supporting both short and canonical preset keys) across all three Bangkok benchmark sites:
 
 | Preset Key (`UI / API Alias`) | Site Name | Center Coordinates (`Lat, Lon`) | Default BBox & Official Polygon | Verified Crowns |
 | :--- | :--- | :--- | :---: | ---: |
-| `ramintra` / `ramintra_sports_park` | **Ramintra Sports Park** (Primary Thesis Site · Bang Khen, Bangkok) | `13.878551°N, 100.619507°E` | `710 m × 396 m` (`10-vertex ROI`, `23.4 Acres (94,544 sqm)`) | **`1,432`** (`71.1%` conf) |
-| `onnut` / `on_nut_waste_center` (`ON`) | **On Nut Waste Center** (Official `229.4 Acres (928,176 sqm)` Campus Boundary) | `13.714447°N, 100.683909°E` | `1,540 m × 1,440 m` (`14-vertex ROI`, `229.4 Acres (928,176 sqm)`) | **`2,987`** (`68.4%` conf) |
+| `onnut` / `on_nut_waste_center` (`ON`) | **On Nut Waste Center** (Official `229.4 Acres (928,176 sqm)` Campus Boundary) | `13.714447°N, 100.683989°E` | `1,540 m × 1,440 m` (`Official ROI`, `229.4 Acres (928,176 sqm)`) | **`2,987`** (`68.4%` conf) |
 | `nongkhaem` / `nong_khaem_waste_center` (`NK`) | **Nong Khaem Waste Center** (Official `150.2 Acres (607,888 sqm)` BMA Boundary) | `13.718255°N, 100.358126°E` | `1,260 m × 1,250 m` (`93-vertex ROI`, `150.2 Acres (607,888 sqm)`) | **`2,110`** (`73.4%` conf) |
+| `ramintra` / `ramintra_sports_park` | **Ramintra Sports Park** (Archived Urban Park Benchmark · Bang Khen, Bangkok) | `13.879366°N, 100.619659°E` | `710 m × 396 m` (`10-vertex ROI`, `23.4 Acres (94,544 sqm)`) | **`1,462`** (`70.6%` conf) |
 
 
 
@@ -199,7 +199,9 @@ Set `CANOPY_V2_QA_MAX_TILES=0` before `qa_v2_m1.py` to run all 99 M1 tiles; the 
 
 ![CanopyGIS v1.8.1 Official Out-of-Distribution Overlays Across All 6 Held-Out Sources](docs/assets/panel_v181_ood_official.jpg)
 
-Evaluated across **all `3` official `MillionTrees v0.25` `TreePolygons` splits** (`out-of-distribution` `4,133` tiles, `within-distribution` `1,623` tiles, and held-out `TLS Complete-59` validation `59` tiles = **`5,815` tile evaluations / `458,851` predicted crowns**) using a single frozen pure zero-shot configuration (`facebook/sam3`, `image_size=1024`, `resolution_mode=direct`, `gsd_m=None`, `score_threshold=0.10`, **`0` forestry training hours**, **`< 5 GB` peak GPU VRAM** on a single consumer workstation):
+Evaluated across **all `3` official `MillionTrees v0.25` `TreePolygons` splits** (`out-of-distribution` `4,133` tiles, `within-distribution` `1,623` tiles, and held-out `TLS Complete-59` validation `59` tiles = **`5,815` tile evaluations / `458,851` predicted crowns**) using a single frozen **pure zero-shot** configuration in [`src/canopygis_v18_eval.py`](src/canopygis_v18_eval.py) (**`facebook/sam3` + Marker-Controlled Compact Geodesic Watershed + 3-Pass Region-Adjacency-Graph (`RAG`) Coalescing**, `image_size=1024`, `resolution_mode=direct`, `gsd_m=None`, `score_threshold=0.10`, **`0` forestry training hours**, **`< 5 GB` peak GPU VRAM** on a single consumer workstation):
+
+> **Engine Scope Distinction (`v1.8.1` Benchmark vs. Interactive Web Portal):** Every `MillionTrees v0.25` result below is produced strictly by standalone pure zero-shot [`src/canopygis_v18_eval.py`](src/canopygis_v18_eval.py) (`SAM 3 + Watershed + 3-Pass Region-Adjacency-Graph (RAG)` with **zero** `DeepForest` calls or forestry fine-tuning). Optional **`Weecology DeepForest 2.1.0`** nadir treetop seeding (`src/canopy_v2.py`) is available only inside the interactive FastAPI web portal.
 
 #### Horizontal Bar Comparison — Official `out-of-distribution` (`4,133` Tiles, `v0.25`, `0 ms` Render)
 
@@ -270,15 +272,15 @@ Full mathematical proofs, `C-CHEAT-01..09` rules, and `C-GATE-1..5` receipts are
 
 ### Candidate Model Benchmark Comparison
 
-| Method & Track | Canopy Coverage | Individual Crowns | CanopyGIS V1.0 Role |
+| Method & Track | Canopy Coverage | Individual Crowns | CanopyGIS v1.8.1 Role |
 | :--- | :--- | :--- | :--- |
 | **RGB indices → binary mask** | High recall, low specificity | No (maps stand only) | Coverage prior & QA baseline |
 | **Standalone DeepForest 2.1 + watershed** | No coverage guarantee | Bounding boxes + heuristic split | Frozen legacy comparison baseline |
 | **SAM 2.1 with boxes/points** | Only where prompted | Good boundary refinement | Annotation & boundary-refinement tool |
 | **Grounding DINO + SAM 2.1** | Concept boxes then masks | Moderate on overhead texture | Secondary zero-shot benchmark |
-| **SAM 3 concept segmentation (`tree`)** | **Strong union mask** | **Returns concept instances** | **Active Tier-1 single-crown engine** |
-| **Weecology DeepForest 2.1.0 (`predict_tile`)** | **Nadir treetop boxes** | **Priority-1 closed-canopy seeds** | **Active Tier-2 nadir treetop anchor** |
-| **Compact Geodesic Watershed + 3-Pass RAG** | **Full forest footprint** | **Coalesced non-overlapping crowns** | **Active Tier-3 closed-canopy splitter** |
+| **SAM 3 concept segmentation (`tree`)** | **Strong union mask** | **Returns concept instances** | **Active Tier-1 single-crown engine (zero-shot + portal)** |
+| **Weecology DeepForest 2.1.0 (`predict_tile`)** | **Nadir treetop boxes** | **Priority-1 closed-canopy seeds** | **Optional Tier-2 nadir treetop anchor (interactive web portal only)** |
+| **Compact Geodesic Watershed + 3-Pass RAG** | **Full forest footprint** | **Coalesced non-overlapping crowns** | **Active Tier-3 closed-canopy splitter (zero-shot + portal)** |
 
 ### M1 Full-Image Stress-Test Record & Acceptance Targets
 
